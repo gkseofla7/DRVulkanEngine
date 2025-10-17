@@ -39,3 +39,8 @@
 
 # debug information files
 *.dwo
+
+DRVulkanEngine/.vs/*
+*.tlog
+*.log
+DRVulkanEngine/DRVulkanEngine/x64/*
