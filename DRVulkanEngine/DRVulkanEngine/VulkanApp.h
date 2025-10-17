@@ -28,7 +28,6 @@ private:
     VulkanContext context;
     VulkanSwapChain swapChain;
     
-    // RenderPass 제거 - Dynamic Rendering 사용
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkBuffer vertexBuffer;

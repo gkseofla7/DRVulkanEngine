@@ -140,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="VulkanApp.h" />
     <ClInclude Include="VulkanContext.h" />
+    <ClInclude Include="VulkanPipeline.h" />
     <ClInclude Include="VulkanSwapChain.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
