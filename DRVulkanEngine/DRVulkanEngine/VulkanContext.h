@@ -25,7 +25,22 @@ private:
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     VkQueue presentQueue = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-	VkCommandPool  commandPool = VK_NULL_HANDLE;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    
+    // Debug 관련 멤버 추가
+    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+    
+    // Debug 모드 설정
+    #ifdef _DEBUG
+        const bool enableValidationLayers = true;
+    #else
+        const bool enableValidationLayers = false;
+    #endif
+    
+    const std::vector<const char*> validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+
 public:
     VulkanContext() = default;
     ~VulkanContext();
@@ -58,10 +73,23 @@ public:
     VkCommandPool getCommandPool() const { return commandPool; }
 
     // 유틸리티 메서드들
-    const QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
+    const uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
 private:
     bool isDeviceSuitable(VkPhysicalDevice device);
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+    
+    // Debug 관련 Private 메서드들
+    bool checkValidationLayerSupport();
+    std::vector<const char*> getRequiredExtensions();
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    void setupDebugMessenger();
+    
+    // Debug 콜백 함수
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData);
 };

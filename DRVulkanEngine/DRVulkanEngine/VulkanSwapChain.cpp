@@ -15,6 +15,10 @@ VulkanSwapChain::VulkanSwapChain(VulkanSwapChain&& other) noexcept
     , swapChainImageFormat(other.swapChainImageFormat)
     , swapChainExtent(other.swapChainExtent)
     , swapChainImageViews(std::move(other.swapChainImageViews))
+    , depthImage(other.depthImage)
+    , depthImageMemory(other.depthImageMemory)
+    , depthImageView(other.depthImageView)
+    , depthFormat(other.depthFormat)
     , context(other.context)
     , window(other.window) {
     
@@ -22,6 +26,10 @@ VulkanSwapChain::VulkanSwapChain(VulkanSwapChain&& other) noexcept
     other.swapChain = VK_NULL_HANDLE;
     other.swapChainImageFormat = VK_FORMAT_UNDEFINED;
     other.swapChainExtent = {0, 0};
+    other.depthImage = VK_NULL_HANDLE;
+    other.depthImageMemory = VK_NULL_HANDLE;
+    other.depthImageView = VK_NULL_HANDLE;
+    other.depthFormat = VK_FORMAT_UNDEFINED;
     other.context = nullptr;
     other.window = nullptr;
 }
@@ -35,12 +43,20 @@ VulkanSwapChain& VulkanSwapChain::operator=(VulkanSwapChain&& other) noexcept {
         swapChainImageFormat = other.swapChainImageFormat;
         swapChainExtent = other.swapChainExtent;
         swapChainImageViews = std::move(other.swapChainImageViews);
+        depthImage = other.depthImage;
+        depthImageMemory = other.depthImageMemory;
+        depthImageView = other.depthImageView;
+        depthFormat = other.depthFormat;
         context = other.context;
         window = other.window;
         
         other.swapChain = VK_NULL_HANDLE;
         other.swapChainImageFormat = VK_FORMAT_UNDEFINED;
         other.swapChainExtent = {0, 0};
+        other.depthImage = VK_NULL_HANDLE;
+        other.depthImageMemory = VK_NULL_HANDLE;
+        other.depthImageView = VK_NULL_HANDLE;
+        other.depthFormat = VK_FORMAT_UNDEFINED;
         other.context = nullptr;
         other.window = nullptr;
     }
@@ -53,8 +69,9 @@ void VulkanSwapChain::initialize(const VulkanContext* vulkanContext, GLFWwindow*
     
     createSwapChain();
     createImageViews();
+    createDepthResources(); // Depth Buffer 생성 추가
     
-    std::cout << "SwapChain initialized with Dynamic Rendering support!" << std::endl;
+    std::cout << "SwapChain initialized with Dynamic Rendering and Depth Buffer support!" << std::endl;
 }
 
 void VulkanSwapChain::createSwapChain() {
@@ -80,7 +97,7 @@ void VulkanSwapChain::createSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-   const  QueueFamilyIndices indices = context->findQueueFamilies(context->getPhysicalDevice());
+    const QueueFamilyIndices indices = context->findQueueFamilies(context->getPhysicalDevice());
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -113,29 +130,38 @@ void VulkanSwapChain::createImageViews() {
     swapChainImageViews.resize(swapChainImages.size());
 
     for (size_t i = 0; i < swapChainImages.size(); i++) {
-        VkImageViewCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = swapChainImages[i];
-        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = swapChainImageFormat;
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount = 1;
-
-        if (vkCreateImageView(context->getDevice(), &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
-        }
+        swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }
 
+void VulkanSwapChain::createDepthResources() {
+    depthFormat = findDepthFormat();
+
+    createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                depthImage, depthImageMemory);
+
+    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    std::cout << "Depth resources created successfully!" << std::endl;
+}
+
 void VulkanSwapChain::recreate() {
-    // 기존 SwapChain 정리 (Framebuffer는 더 이상 없음)
+    // 기존 Depth Buffer 정리
+    if (depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(context->getDevice(), depthImageView, nullptr);
+        depthImageView = VK_NULL_HANDLE;
+    }
+    if (depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(context->getDevice(), depthImage, nullptr);
+        depthImage = VK_NULL_HANDLE;
+    }
+    if (depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(context->getDevice(), depthImageMemory, nullptr);
+        depthImageMemory = VK_NULL_HANDLE;
+    }
+
+    // 기존 SwapChain 정리
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(context->getDevice(), imageView, nullptr);
     }
@@ -146,11 +172,12 @@ void VulkanSwapChain::recreate() {
         swapChain = VK_NULL_HANDLE;
     }
 
-    // 새로운 SwapChain 생성
+    // 새로운 SwapChain과 Depth Buffer 생성
     createSwapChain();
     createImageViews();
+    createDepthResources();
 
-    std::cout << "SwapChain recreated with Dynamic Rendering!" << std::endl;
+    std::cout << "SwapChain recreated with Dynamic Rendering and Depth Buffer!" << std::endl;
 }
 
 void VulkanSwapChain::cleanup() {
@@ -158,11 +185,27 @@ void VulkanSwapChain::cleanup() {
         return;
     }
 
+    // Depth Buffer 정리
+    if (depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(context->getDevice(), depthImageView, nullptr);
+        depthImageView = VK_NULL_HANDLE;
+    }
+    if (depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(context->getDevice(), depthImage, nullptr);
+        depthImage = VK_NULL_HANDLE;
+    }
+    if (depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(context->getDevice(), depthImageMemory, nullptr);
+        depthImageMemory = VK_NULL_HANDLE;
+    }
+
+    // Color Image Views 정리
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(context->getDevice(), imageView, nullptr);
     }
     swapChainImageViews.clear();
 
+    // SwapChain 정리
     if (swapChain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(context->getDevice(), swapChain, nullptr);
         swapChain = VK_NULL_HANDLE;
@@ -182,8 +225,24 @@ VkRenderingAttachmentInfo VulkanSwapChain::getColorAttachmentInfo(uint32_t image
     return colorAttachment;
 }
 
+VkRenderingAttachmentInfo VulkanSwapChain::getDepthAttachmentInfo() const {
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = depthImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.clearValue.depthStencil = {1.0f, 0};
+    return depthAttachment;
+}
+
 VkRenderingInfo VulkanSwapChain::getRenderingInfo(uint32_t imageIndex) const {
-    auto colorAttachment = getColorAttachmentInfo(imageIndex);
+    // thread_local static으로 안전한 참조 보장
+    static thread_local VkRenderingAttachmentInfo colorAttachment;
+    static thread_local VkRenderingAttachmentInfo depthAttachment;
+    
+    colorAttachment = getColorAttachmentInfo(imageIndex);
+    depthAttachment = getDepthAttachmentInfo();
     
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -192,10 +251,94 @@ VkRenderingInfo VulkanSwapChain::getRenderingInfo(uint32_t imageIndex) const {
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = nullptr;
+    renderingInfo.pDepthAttachment = &depthAttachment; // Depth Attachment 추가
     renderingInfo.pStencilAttachment = nullptr;
     
     return renderingInfo;
+}
+
+VkFormat VulkanSwapChain::findDepthFormat() {
+    return findSupportedFormat(
+        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+}
+
+VkFormat VulkanSwapChain::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(context->getPhysicalDevice(), format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+}
+
+bool VulkanSwapChain::hasStencilComponent(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void VulkanSwapChain::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, 
+                                  VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
+                                  VkImage& image, VkDeviceMemory& imageMemory) {
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(context->getDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(context->getDevice(), image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = context->findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(context->getDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(context->getDevice(), image, imageMemory, 0);
+}
+
+VkImageView VulkanSwapChain::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = aspectFlags;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VkImageView imageView;
+    if (vkCreateImageView(context->getDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image view!");
+    }
+
+    return imageView;
 }
 
 SwapChainSupportDetails VulkanSwapChain::querySwapChainSupport(VkPhysicalDevice device) {
