@@ -34,7 +34,7 @@ VulkanContext::VulkanContext(VulkanContext&& other) noexcept
     , graphicsQueue(other.graphicsQueue)
     , presentQueue(other.presentQueue)
     , surface(other.surface)
-    , commandPool(other.commandPool)
+    , commandPool_(other.commandPool_)
     , debugMessenger(other.debugMessenger) {
     
     // 이동된 객체의 핸들들을 무효화
@@ -44,7 +44,7 @@ VulkanContext::VulkanContext(VulkanContext&& other) noexcept
     other.graphicsQueue = VK_NULL_HANDLE;
     other.presentQueue = VK_NULL_HANDLE;
     other.surface = VK_NULL_HANDLE;
-    other.commandPool = VK_NULL_HANDLE;
+    other.commandPool_ = VK_NULL_HANDLE;
     other.debugMessenger = VK_NULL_HANDLE;
 }
 
@@ -58,7 +58,7 @@ VulkanContext& VulkanContext::operator=(VulkanContext&& other) noexcept {
         graphicsQueue = other.graphicsQueue;
         presentQueue = other.presentQueue;
         surface = other.surface;
-        commandPool = other.commandPool;
+        commandPool_ = other.commandPool_;
         debugMessenger = other.debugMessenger;
         
         other.instance = VK_NULL_HANDLE;
@@ -67,7 +67,7 @@ VulkanContext& VulkanContext::operator=(VulkanContext&& other) noexcept {
         other.graphicsQueue = VK_NULL_HANDLE;
         other.presentQueue = VK_NULL_HANDLE;
         other.surface = VK_NULL_HANDLE;
-        other.commandPool = VK_NULL_HANDLE;
+        other.commandPool_ = VK_NULL_HANDLE;
         other.debugMessenger = VK_NULL_HANDLE;
     }
     return *this;
@@ -320,7 +320,7 @@ void VulkanContext::createCommandPool() {
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool!");
     }
 
@@ -331,7 +331,7 @@ VkCommandBuffer VulkanContext::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = commandPool_;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -357,7 +357,7 @@ void VulkanContext::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphicsQueue);
 
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device, commandPool_, 1, &commandBuffer);
 }
 
 void VulkanContext::cleanup() {
@@ -367,9 +367,9 @@ void VulkanContext::cleanup() {
         debugMessenger = VK_NULL_HANDLE;
     }
 
-    if (commandPool != VK_NULL_HANDLE && device != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(device, commandPool, nullptr);
-        commandPool = VK_NULL_HANDLE;
+    if (commandPool_ != VK_NULL_HANDLE && device != VK_NULL_HANDLE) {
+        vkDestroyCommandPool(device, commandPool_, nullptr);
+        commandPool_ = VK_NULL_HANDLE;
     }
 
     if (device != VK_NULL_HANDLE) {

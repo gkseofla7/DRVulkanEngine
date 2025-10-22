@@ -5,46 +5,48 @@
 #include <set>
 #include <algorithm>
 #include "Camera.h"
-
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 // 삼각형 정점 데이터
 // 정육면체를 구성하는 8개의 고유한 정점(Vertex) 데이터
 // 각 면이 고유한 색상을 갖도록 정의된 24개의 정점 데이터
 const std::vector<Vertex> vertices = {
     // 앞면 (빨강) - 정점 인덱스 0-3
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // 0
-    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // 1
-    {{ 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // 2
-    {{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}, // 3
+    // pos                      color                  texCoord
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}}, // 0: Bottom-left
+    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}}, // 1: Bottom-right
+    {{ 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}}, // 2: Top-right
+    {{-0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, // 3: Top-left
 
     // 뒷면 (파랑) - 정점 인덱스 4-7
-    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // 4
-    {{ 0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // 5
-    {{ 0.5f,  0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // 6
-    {{-0.5f,  0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}, // 7
+    {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, // 4: Bottom-right
+    {{ 0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, // 5: Bottom-left
+    {{ 0.5f,  0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}, // 6: Top-left
+    {{-0.5f,  0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}}, // 7: Top-right
 
     // 왼쪽 면 (초록) - 정점 인덱스 8-11
-    {{-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}}, // 8
-    {{-0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}}, // 9
-    {{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}}, // 10
-    {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}}, // 11
+    {{-0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}, // 8: Bottom-right
+    {{-0.5f, -0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}}, // 9: Bottom-left
+    {{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}, // 10: Top-left
+    {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, // 11: Top-right
 
     // 오른쪽 면 (노랑) - 정점 인덱스 12-15
-    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}}, // 12
-    {{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}}, // 13
-    {{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}}, // 14
-    {{ 0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}}, // 15
+    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}}, // 12: Bottom-left
+    {{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {0.0f, 0.0f}}, // 13: Top-left
+    {{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, // 14: Top-right
+    {{ 0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}, // 15: Bottom-right
 
     // 윗면 (시안) - 정점 인덱스 16-19
-    {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}}, // 16
-    {{ 0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}}, // 17
-    {{ 0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}}, // 18
-    {{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}}, // 19
+    {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}, // 16: Bottom-left
+    {{ 0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}, // 17: Bottom-right
+    {{ 0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 0.0f}}, // 18: Top-right
+    {{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}, // 19: Top-left
 
     // 아랫면 (마젠타) - 정점 인덱스 20-23
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}}, // 20
-    {{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}}, // 21
-    {{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}}, // 22
-    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}}  // 23
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}, // 20: Top-left
+    {{-0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, // 21: Bottom-left
+    {{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, // 22: Bottom-right
+    {{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}}  // 23: Top-right
 };
 
 // 위 'vertices' 배열의 인덱스를 사용하여 6개의 면(삼각형 12개)을 그립니다.
@@ -76,30 +78,6 @@ VulkanApp::VulkanApp()
 }
 
 VulkanApp::~VulkanApp() = default;
-// Vertex 구조체 구현
-VkVertexInputBindingDescription Vertex::getBindingDescription() {
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return bindingDescription;
-}
-
-std::array<VkVertexInputAttributeDescription, 2> Vertex::getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-    
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-    return attributeDescriptions;
-}
 
 // VulkanApp 클래스 구현
 void VulkanApp::run() {
@@ -122,157 +100,19 @@ void VulkanApp::initVulkan() {
     context.pickPhysicalDevice();
     context.createLogicalDevice();
     context.createCommandPool();
-    swapChain.initialize(&context, window); // RenderPass 없이 SwapChain 초기화
-
-    createUniformBuffers();
     createDescriptorSetLayout();
+    swapChain.initialize(&context, window); // RenderPass 없이 SwapChain 초기화
+	pipeline.initialize(&context, &swapChain, &descriptorSetLayout);
+    createUniformBuffers();
+    createTextureImage();
+    createTextureSampler();
     createDescriptorPool();
     createDescriptorSets();
-    createGraphicsPipeline();
+
     createVertexBuffer();
     createIndexBuffer();
     createCommandBuffers();
     createSyncObjects();
-}
-
-void VulkanApp::createGraphicsPipeline() {
-    auto vertShaderCode = readFile("shaders/shader.vert.spv");
-    auto fragShaderCode = readFile("shaders/shader.frag.spv");
-
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) swapChain.getSwapChainExtent().width;
-    viewport.height = (float) swapChain.getSwapChainExtent().height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = swapChain.getSwapChainExtent();
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
-    depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilInfo.depthTestEnable = VK_TRUE;
-    depthStencilInfo.depthWriteEnable = VK_TRUE;
-    depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
-    depthStencilInfo.stencilTestEnable = VK_FALSE;
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-
-    if (vkCreatePipelineLayout(context.getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create pipeline layout!");
-    }
-
-    // Dynamic Rendering을 위한 Pipeline Rendering Create Info
-    VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
-    pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    VkFormat colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    pipelineRenderingCreateInfo.pColorAttachmentFormats = &colorAttachmentFormat;
-
-    pipelineRenderingCreateInfo.depthAttachmentFormat = swapChain.getDepthFormat(); // 예시: context에서 깊이 포맷 가져오기
-    pipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // 스텐실은 사용 안 함
-
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = &pipelineRenderingCreateInfo; // Dynamic Rendering 정보 연결
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &depthStencilInfo;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = VK_NULL_HANDLE; // Dynamic Rendering에서는 null
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-    if (vkCreateGraphicsPipelines(context.getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
-    }
-
-    vkDestroyShaderModule(context.getDevice(), fragShaderModule, nullptr);
-    vkDestroyShaderModule(context.getDevice(), vertShaderModule, nullptr);
-
-    std::cout << "Graphics pipeline created with Dynamic Rendering!" << std::endl;
 }
 
 void VulkanApp::createVertexBuffer() {
@@ -394,11 +234,11 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     auto renderingInfo = swapChain.getRenderingInfo(imageIndex);
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	pipeline.bindPipeline(commandBuffer);
 
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout,
+        pipeline.getPipelineLayout(),
         0, // firstSet: 디스크립터 셋 레이아웃 배열의 시작 인덱스
         1, // descriptorSetCount: 바인딩할 디스크립터 셋의 개수
         &descriptorSets[currentFrame], // pDescriptorSets: 바인딩할 디스크립터 셋의 포인터
@@ -469,9 +309,6 @@ void VulkanApp::cleanup() {
 
     vkDestroyBuffer(context.getDevice(), vertexBuffer, nullptr);
     vkFreeMemory(context.getDevice(), vertexBufferMemory, nullptr);
-
-    vkDestroyPipeline(context.getDevice(), graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
 
     // SwapChain과 VulkanContext는 자동으로 정리됨 (RAII)
 
@@ -638,40 +475,55 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
 }
 
 void VulkanApp::createDescriptorSetLayout() {
-    // 0번 바인딩에 UBO가 하나 있다는 정보를 정의합니다.
+    // 1. Uniform Buffer Object(UBO) 바인딩 정의 (binding = 0)
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0; // layout(binding = 0) in shader
+    uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1; // 배열이 아니므로 1개
+    uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // 버텍스 셰이더에서 사용
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
+    // 2. Combined Image Sampler 바인딩 정의 (binding = 1)
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1; // 셰이더의 layout(binding = 1)과 일치
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // 프래그먼트 셰이더에서 사용
+
+    // 3. 위에서 정의한 바인딩들을 배열에 담습니다.
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
+    // 4. 레이아웃 생성 정보 업데이트
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size()); // 바인딩 개수를 2로 설정
+    layoutInfo.pBindings = bindings.data(); // 바인딩 배열의 포인터를 전달
 
     if (vkCreateDescriptorSetLayout(context.getDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
 }
-
 void VulkanApp::createDescriptorPool() {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(swapChain.getImageCount());
+    std::vector<VkDescriptorPoolSize> poolSizes(2);
+
+    // UBO를 위한 풀 크기
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChain.getImageCount());
+
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChain.getImageCount());
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(swapChain.getImageCount());
 
     if (vkCreateDescriptorPool(context.getDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
-
 void VulkanApp::createDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(swapChain.getImageCount(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -685,22 +537,409 @@ void VulkanApp::createDescriptorSets() {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    // 할당된 각 디스크립터 셋에 실제 Uniform Buffer 정보를 기록(업데이트)합니다.
+    // 할당된 각 디스크립터 셋에 실제 리소스 정보를 기록(업데이트)합니다.
     for (size_t i = 0; i < swapChain.getImageCount(); i++) {
+        // 1. UBO 정보 설정 (binding = 0)
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
+        // 2. 텍스처 이미지 및 샘플러 정보 설정 (binding = 1) 
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // 셰이더가 읽기 위한 레이아웃
+        imageInfo.imageView = textureView_; // 생성해둔 텍스처 이미지 뷰
+        imageInfo.sampler = textureSampler_;     // 생성해둔 텍스처 샘플러
 
-        vkUpdateDescriptorSets(context.getDevice(), 1, &descriptorWrite, 0, nullptr);
+        // 3. 두 개의 쓰기 작업을 배열에 담습니다.
+        std::vector<VkWriteDescriptorSet> descriptorWrites(2);
+
+        // UBO 쓰기 작업 설정
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+        // 텍스처 샘플러 쓰기 작업 설정 (추가된 부분)
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1; // 셰이더의 layout(binding = 1)과 일치
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo; // 버퍼가 아닌 이미지 정보를 연결
+
+        // 4. 두 개의 쓰기 작업을 한번에 업데이트합니다.
+        vkUpdateDescriptorSets(context.getDevice(),
+            static_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(),
+            0, nullptr);
+    }
+}
+
+void VulkanApp::createTextureImage() {
+    int texWidth, texHeight, texChannels;
+    // stbi_load 함수로 이미지 파일을 불러옵니다.
+    // STBI_rgb_alpha 플래그는 이미지를 강제로 RGBA(4채널) 형식으로 로드합니다.
+    stbi_uc* pixels = stbi_load("../assets/images/minion.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    if (!pixels) {
+        throw std::runtime_error("failed to load texture image!");
+    }
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    // CPU에서 접근 가능하고(HOST_VISIBLE), 복사의 원본(TRANSFER_SRC)이 될 버퍼를 생성합니다.
+    createBuffer(imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory);
+
+    // Staging Buffer의 메모리를 매핑하여 CPU의 픽셀 데이터를 복사합니다.
+    void* data;
+    vkMapMemory(context.getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(context.getDevice(), stagingBufferMemory);
+
+    // 원본 픽셀 데이터는 이제 CPU 메모리에서 해제해도 됩니다.
+    stbi_image_free(pixels);
+
+
+// 이미지 생성
+    createImage(texWidth, texHeight,
+        VK_FORMAT_R8G8B8A8_SRGB, // SRGB 포맷은 색상을 더 자연스럽게 표현합니다.
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // 복사 대상 + 셰이더 샘플링용
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // 최고의 성능을 위해 GPU 전용 메모리에 생성
+        texture_,
+        textureMemory_);
+
+    // 레이아웃 변경 및 데이터 복사
+    // (1) UNDEFINED -> TRANSFER_DST_OPTIMAL (복사 받기 좋은 레이아웃으로 변경)
+    transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    // (2) Staging Buffer에서 최종 이미지로 픽셀 데이터 복사
+    copyBufferToImage(stagingBuffer, texture_, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+    // (3) TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (셰이더가 읽기 좋은 레이아웃으로 변경)
+    transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // 복사가 끝났으므로 Staging Buffer는 파괴합니다.
+    vkDestroyBuffer(context.getDevice(), stagingBuffer, nullptr);
+    vkFreeMemory(context.getDevice(), stagingBufferMemory, nullptr);
+
+    // 이미지 뷰 생성
+    // 셰이더는 VkImage가 아닌 VkImageView를 통해 이미지에 접근합니다.
+    textureView_ = createImageView(texture_, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+// 이 함수들은 보통 Vulkan Context나 Base 클래스의 멤버 함수로 만듭니다.
+// device와 physicalDevice가 멤버 변수로 존재한다고 가정합니다.
+
+void VulkanApp::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+    // 1. 버퍼 생성 정보(CreateInfo) 정의
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size; // 버퍼의 크기 (바이트 단위)
+    bufferInfo.usage = usage; // 버퍼의 용도 (예: 정점 버퍼, 복사 원본 등)
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // 단일 큐에서만 사용 (간단한 설정)
+
+    // 2. 버퍼 핸들 생성
+    if (vkCreateBuffer(context.getDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create buffer!");
+    }
+
+    // 3. 버퍼에 필요한 메모리 요구사항 쿼리
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(context.getDevice(), buffer, &memRequirements);
+
+    // 4. 메모리 할당 정보(AllocateInfo) 정의
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size; // 필요한 메모리 크기
+    // 요구사항과 속성을 만족하는 적절한 메모리 타입을 찾습니다.
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    // 5. GPU 메모리 할당
+    if (vkAllocateMemory(context.getDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate buffer memory!");
+    }
+
+    // 6. 할당된 메모리를 버퍼에 바인딩(연결)
+    vkBindBufferMemory(context.getDevice(), buffer, bufferMemory, 0);
+}
+
+void VulkanApp::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+    // 1. 이미지 생성 정보(CreateInfo) 정의
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1; // 2D 텍스처이므로 depth는 1
+    imageInfo.mipLevels = 1; // 지금은 밉맵을 사용하지 않음
+    imageInfo.arrayLayers = 1; // 배열 텍스처가 아님
+    imageInfo.format = format; // 이미지의 픽셀 포맷 (예: RGBA)
+    imageInfo.tiling = tiling; // 텍셀 배치 방식 (Optimal이 GPU에 최적)
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // 초기 레이아웃은 신경 쓰지 않음
+    imageInfo.usage = usage; // 이미지의 용도 (예: 텍스처 샘플링, 복사 대상)
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; // 멀티샘플링 사용 안 함
+
+    // 2. 이미지 핸들 생성
+    if (vkCreateImage(context.getDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    // 3. 이미지에 필요한 메모리 요구사항 쿼리
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(context.getDevice(), image, &memRequirements);
+
+    // 4. 메모리 할당 정보(AllocateInfo) 정의
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    // 5. GPU 메모리 할당
+    if (vkAllocateMemory(context.getDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    // 6. 할당된 메모리를 이미지에 바인딩(연결)
+    vkBindImageMemory(context.getDevice(), image, imageMemory, 0);
+}
+
+uint32_t VulkanApp::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    // 물리 디바이스가 지원하는 메모리 속성을 쿼리합니다.
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(context.getPhysicalDevice(), &memProperties);
+
+    // 지원되는 메모리 타입들을 순회합니다.
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        // 1. typeFilter 비트가 설정되어 있는지 확인 (이 리소스가 사용할 수 있는 메모리 타입인지)
+        // 2. 해당 메모리 타입이 우리가 요구하는 모든 속성(properties)을 가지고 있는지 확인
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i; // 적합한 메모리 타입의 인덱스를 반환
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void VulkanApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    // 1. 일회성 작업을 위한 커맨드 버퍼를 시작합니다.
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+    // 2. 이미지 메모리 장벽(Image Memory Barrier)을 설정합니다.
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout; // 이전 레이아웃
+    barrier.newLayout = newLayout; // 새로운 레이아웃
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    // 3. 이전/이후 레이아웃에 따라 어떤 파이프라인 단계에서
+    //    장벽이 발생해야 하는지, 접근 권한은 어떻게 설정할지 결정합니다.
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+
+    // 4. 커맨드 버퍼에 파이프라인 장벽 명령을 기록합니다.
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        sourceStage, destinationStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    // 5. 커맨드 버퍼 기록을 마치고 GPU에 제출하여 실행합니다.
+    endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanApp::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    // 1. 일회성 작업을 위한 커맨드 버퍼를 시작합니다.
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+    // 2. 복사할 영역(Region)을 정의합니다.
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = { width, height, 1 };
+
+    // 3. 커맨드 버퍼에 버퍼-이미지 복사 명령을 기록합니다.
+    //    이미지의 레이아웃은 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL 상태여야 합니다.
+    vkCmdCopyBufferToImage(
+        commandBuffer,
+        buffer,
+        image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region
+    );
+
+    // 4. 커맨드 버퍼 기록을 마치고 GPU에 제출하여 실행합니다.
+    endSingleTimeCommands(commandBuffer);
+}
+
+// 이 함수들은 graphicsQueue와 commandPool이 멤버 변수로 존재한다고 가정합니다.
+
+VkCommandBuffer VulkanApp::beginSingleTimeCommands() {
+    // 1. 커맨드 풀에서 커맨드 버퍼를 하나 할당받습니다.
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = context.getCommandPool();
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(context.getDevice(), &allocInfo, &commandBuffer);
+
+    // 2. 커맨드 버퍼 기록을 시작합니다.
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // 이 버퍼는 한 번만 사용하고 파괴될 것임
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void VulkanApp::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+    // 1. 커맨드 버퍼 기록을 종료합니다.
+    vkEndCommandBuffer(commandBuffer);
+
+    // 2. 제출 정보(Submit Info)를 정의합니다.
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    // 3. 그래픽스 큐에 커맨드 버퍼를 제출합니다.
+    vkQueueSubmit(context.getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    // 4. 작업이 완료될 때까지 CPU가 기다리도록 동기화합니다.
+    vkQueueWaitIdle(context.getGraphicsQueue());
+
+    // 5. 사용이 끝난 임시 커맨드 버퍼를 해제합니다.
+    vkFreeCommandBuffers(context.getDevice(), context.getCommandPool(), 1, &commandBuffer);
+}
+
+// 이 함수는 Vulkan Context나 Base 클래스의 멤버 함수로 만드는 것이 일반적입니다.
+// device가 멤버 변수로 존재한다고 가정합니다.
+
+VkImageView VulkanApp::createImageView(VkImage image, VkFormat format) {
+    // 1. 이미지 뷰 생성 정보(CreateInfo)를 정의합니다.
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image; // 뷰를 생성할 대상 이미지
+
+    // 2. 이미지의 타입을 지정합니다. (2D, 3D, Cubemap 등)
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format; // 뷰가 이미지를 해석할 픽셀 포맷
+
+    // 3. 컴포넌트 매핑(swizzling)을 기본값으로 설정합니다.
+    // (예: R 채널을 G 채널로 보이게 하는 등의 작업을 하지 않음)
+    viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+    // 4. 이미지의 어떤 부분을 뷰가 다룰지 정의합니다. (Subresource Range)
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // 컬러 데이터를 다룸
+    viewInfo.subresourceRange.baseMipLevel = 0; // 밉맵 레벨 0부터
+    viewInfo.subresourceRange.levelCount = 1;   // 1개의 밉맵 레벨을 다룸
+    viewInfo.subresourceRange.baseArrayLayer = 0; // 배열의 첫 번째 레이어부터
+    viewInfo.subresourceRange.layerCount = 1;   // 1개의 레이어를 다룸
+
+    VkImageView imageView;
+    if (vkCreateImageView(context.getDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture image view!");
+    }
+
+    return imageView;
+}
+
+void VulkanApp::createTextureSampler() {
+    // 1. 샘플러 생성 정보(CreateInfo)를 정의합니다.
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+
+    // 2. 필터링(Filtering) 설정: 텍스처를 확대(mag)하거나 축소(min)할 때
+    //    픽셀 색상을 어떻게 보간할지 결정합니다.
+    //    - VK_FILTER_LINEAR: 주변 픽셀과 선형 보간하여 부드럽게 표현합니다. (추천)
+    //    - VK_FILTER_NEAREST: 가장 가까운 픽셀 색상을 그대로 사용하여 픽셀 아트처럼 보이게 합니다.
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+    // 3. 주소 지정 모드(Address Mode): UV 좌표가 [0, 1] 범위를 벗어날 때
+    //    텍스처를 어떻게 처리할지 결정합니다.
+    //    - VK_SAMPLER_ADDRESS_MODE_REPEAT: 텍스처를 바둑판식으로 반복합니다. (일반적)
+    //    - VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT: 거울에 비친 것처럼 반복합니다.
+    //    - VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE: 가장자리 픽셀 색상을 계속 사용합니다.
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+    // 4. 비등방성 필터링(Anisotropic Filtering) 활성화  anisotropia
+    //    비스듬한 각도에서 텍스처를 볼 때 흐릿해지는 현상을 줄여 퀄리티를 크게 향상시킵니다.
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(context.getPhysicalDevice(), &properties);
+
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy; // GPU가 지원하는 최대값 사용
+
+    // 5. 기타 설정
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Clamp 모드일 때의 테두리 색상
+    samplerInfo.unnormalizedCoordinates = VK_FALSE; // UV 좌표를 [0, 1]로 정규화하여 사용
+    samplerInfo.compareEnable = VK_FALSE; // 그림자 맵(PCF) 같은 특수 용도가 아님
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+    // 6. 밉맵(Mipmap) 관련 설정
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f; // 지금은 밉맵을 사용하지 않으므로 기본값 설정
+
+    if (vkCreateSampler(context.getDevice(), &samplerInfo, nullptr, &textureSampler_) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture sampler!");
     }
 }

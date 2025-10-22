@@ -9,21 +9,17 @@
 #include <optional>
 #include "VulkanContext.h"
 #include "VulkanSwapChain.h"
+#include "VulkanPipeline.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
+#include "Vertex.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 class Camera;
 // 삼각형 정점 데이터 구조체
-struct Vertex {
-    float pos[3];
-    float color[3];
 
-    static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
-};
 
 struct UniformBufferObject {
     glm::mat4 view;
@@ -35,9 +31,7 @@ private:
     GLFWwindow* window;
     VulkanContext context;
     VulkanSwapChain swapChain;
-    
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    VulkanPipeline pipeline;
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
@@ -57,6 +51,11 @@ private:
     VkDescriptorPool descriptorPool;
 	VkDescriptorSetLayout descriptorSetLayout;
 	std::vector<VkDescriptorSet> descriptorSets;
+
+    VkImage texture_;
+    VkDeviceMemory textureMemory_;
+    VkImageView textureView_;
+	VkSampler textureSampler_;
 public:
     VulkanApp();
     ~VulkanApp();
@@ -65,7 +64,6 @@ public:
 private:
     void initWindow();
     void initVulkan();
-    void createGraphicsPipeline();
     void createVertexBuffer();
     void createIndexBuffer();
     void createCommandBuffers();
@@ -82,4 +80,16 @@ private:
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
+    void createTextureImage();
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    VkImageView createImageView(VkImage image, VkFormat format);
+    void createTextureSampler();
+    
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 };

@@ -4,19 +4,11 @@
 #include <vector>
 #include <string>
 #include <array>
-
+#include "Vertex.h"
 // 전방 선언
 class VulkanContext;
 class VulkanSwapChain;
 
-// Vertex 구조체 (VulkanApp.h에서 이동)
-struct Vertex {
-    float pos[2];
-    float color[3];
-
-    static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
-};
 
 class VulkanPipeline {
 private:
@@ -25,7 +17,7 @@ private:
     
     const VulkanContext* context;
     const VulkanSwapChain* swapChain;
-
+    const VkDescriptorSetLayout* descriptorSetLayout;
 public:
     VulkanPipeline() = default;
     ~VulkanPipeline();
@@ -39,10 +31,12 @@ public:
     VulkanPipeline& operator=(VulkanPipeline&& other) noexcept;
 
     // 초기화 및 정리
-    void initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain);
+    void initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const VkDescriptorSetLayout* descriptorSetLayout);
     void createGraphicsPipeline();
     void cleanup();
-    
+	void bindPipeline(VkCommandBuffer commandBuffer);
+
+
     // Pipeline 재생성 (SwapChain 재생성 시)
     void recreate();
 

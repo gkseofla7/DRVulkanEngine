@@ -25,7 +25,7 @@ private:
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     VkQueue presentQueue = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VkCommandPool commandPool_ = VK_NULL_HANDLE;
     
     // Debug 관련 멤버 추가
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
@@ -70,7 +70,7 @@ public:
     VkQueue getGraphicsQueue() const { return graphicsQueue; }
     VkQueue getPresentQueue() const { return presentQueue; }
     VkSurfaceKHR getSurface() const { return surface; }
-    VkCommandPool getCommandPool() const { return commandPool; }
+    VkCommandPool getCommandPool() const { return commandPool_; }
 
     // 유틸리티 메서드들
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
