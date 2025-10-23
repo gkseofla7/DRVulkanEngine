@@ -18,10 +18,13 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 class Camera;
+class Texture;
+class Model;
 // 삼각형 정점 데이터 구조체
 
 
 struct UniformBufferObject {
+    glm::mat4 world;
     glm::mat4 view;
     glm::mat4 proj;
 };
@@ -29,13 +32,10 @@ struct UniformBufferObject {
 class VulkanApp {
 private:
     GLFWwindow* window;
-    VulkanContext context;
+    VulkanContext context_;
     VulkanSwapChain swapChain;
     VulkanPipeline pipeline;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -52,10 +52,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout;
 	std::vector<VkDescriptorSet> descriptorSets;
 
-    VkImage texture_;
-    VkDeviceMemory textureMemory_;
-    VkImageView textureView_;
-	VkSampler textureSampler_;
+    std::unique_ptr<Model> model_;
 public:
     VulkanApp();
     ~VulkanApp();
@@ -64,8 +61,7 @@ public:
 private:
     void initWindow();
     void initVulkan();
-    void createVertexBuffer();
-    void createIndexBuffer();
+
     void createCommandBuffers();
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void createSyncObjects();
@@ -80,11 +76,10 @@ private:
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
-    void createTextureImage();
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     VkImageView createImageView(VkImage image, VkFormat format);
-    void createTextureSampler();
     
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -92,4 +87,6 @@ private:
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    void loadAssets();
 };

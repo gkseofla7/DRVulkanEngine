@@ -5,10 +5,8 @@
 #include <string>
 #include <array>
 #include "Vertex.h"
-// 전방 선언
 class VulkanContext;
 class VulkanSwapChain;
-
 
 class VulkanPipeline {
 private:
@@ -17,7 +15,7 @@ private:
     
     const VulkanContext* context;
     const VulkanSwapChain* swapChain;
-    const VkDescriptorSetLayout* descriptorSetLayout;
+    std::vector<VkDescriptorSetLayout*> descriptorSetLayouts_;
 public:
     VulkanPipeline() = default;
     ~VulkanPipeline();
@@ -31,7 +29,7 @@ public:
     VulkanPipeline& operator=(VulkanPipeline&& other) noexcept;
 
     // 초기화 및 정리
-    void initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const VkDescriptorSetLayout* descriptorSetLayout);
+    void initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const std::vector<VkDescriptorSetLayout*> inDescriptorSetLayouts);
     void createGraphicsPipeline();
     void cleanup();
 	void bindPipeline(VkCommandBuffer commandBuffer);

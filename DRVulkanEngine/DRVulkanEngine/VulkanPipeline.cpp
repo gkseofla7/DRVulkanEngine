@@ -42,10 +42,10 @@ VulkanPipeline& VulkanPipeline::operator=(VulkanPipeline&& other) noexcept {
     return *this;
 }
 
-void VulkanPipeline::initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const VkDescriptorSetLayout* inDescriptorSetLayout) {
+void VulkanPipeline::initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const std::vector<VkDescriptorSetLayout*> inDescriptorSetLayouts) {
     context = vulkanContext;
     swapChain = vulkanSwapChain;
-    descriptorSetLayout = inDescriptorSetLayout;
+    descriptorSetLayouts_ = inDescriptorSetLayouts;
     createGraphicsPipeline();
     
     std::cout << "VulkanPipeline initialized successfully!" << std::endl;
@@ -204,12 +204,19 @@ VkShaderModule VulkanPipeline::createShaderModule(const std::vector<char>& code)
 }
 
 void VulkanPipeline::createPipelineLayout() {
+    std::vector<VkDescriptorSetLayout> setLayouts;
+    setLayouts.reserve(descriptorSetLayouts_.size());
+    for (const VkDescriptorSetLayout* layoutPtr : descriptorSetLayouts_) {
+        if (layoutPtr) {
+            setLayouts.push_back(*layoutPtr);
+        }
+    }
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayout;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = setLayouts.empty() ? nullptr : setLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 0;
-
     if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -267,7 +274,7 @@ VkPipelineRasterizationStateCreateInfo VulkanPipeline::createRasterizationState(
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
     return rasterizer;
