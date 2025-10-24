@@ -1,9 +1,13 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 #include "VulkanSwapChain.h"
+#include "PipelineManager.h"
+#include "Shader.h"
+#include "ShaderManager.h"
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
+#include "DescriptorPool.h"
 
 // Vertex 구조체 구현 (VulkanApp.cpp에서 이동)
 
@@ -15,14 +19,14 @@ VulkanPipeline::~VulkanPipeline() {
 VulkanPipeline::VulkanPipeline(VulkanPipeline&& other) noexcept
     : pipelineLayout(other.pipelineLayout)
     , graphicsPipeline(other.graphicsPipeline)
-    , context(other.context)
-    , swapChain(other.swapChain) {
+    , context_(other.context_)
+    , swapChain_(other.swapChain_) {
     
     // 이동된 객체의 핸들들을 무효화
     other.pipelineLayout = VK_NULL_HANDLE;
     other.graphicsPipeline = VK_NULL_HANDLE;
-    other.context = nullptr;
-    other.swapChain = nullptr;
+    other.context_ = nullptr;
+    other.swapChain_ = nullptr;
 }
 
 VulkanPipeline& VulkanPipeline::operator=(VulkanPipeline&& other) noexcept {
@@ -31,48 +35,42 @@ VulkanPipeline& VulkanPipeline::operator=(VulkanPipeline&& other) noexcept {
         
         pipelineLayout = other.pipelineLayout;
         graphicsPipeline = other.graphicsPipeline;
-        context = other.context;
-        swapChain = other.swapChain;
+        context_ = other.context_;
+        swapChain_ = other.swapChain_;
         
         other.pipelineLayout = VK_NULL_HANDLE;
         other.graphicsPipeline = VK_NULL_HANDLE;
-        other.context = nullptr;
-        other.swapChain = nullptr;
+        other.context_ = nullptr;
+        other.swapChain_ = nullptr;
     }
     return *this;
 }
 
-void VulkanPipeline::initialize(const VulkanContext* vulkanContext, const VulkanSwapChain* vulkanSwapChain, const std::vector<VkDescriptorSetLayout*> inDescriptorSetLayouts) {
-    context = vulkanContext;
-    swapChain = vulkanSwapChain;
-    descriptorSetLayouts_ = inDescriptorSetLayouts;
-    createGraphicsPipeline();
-    
-    std::cout << "VulkanPipeline initialized successfully!" << std::endl;
+void VulkanPipeline::initialize(const VulkanContext* vulkanContext,
+    const VulkanSwapChain* vulkanSwapChain,
+    DescriptorPool* descriptorPool,
+    ShaderManager* shaderMgr,
+    const PipelineConfig& config)
+{
+    context_ = vulkanContext;
+    swapChain_ = vulkanSwapChain;
+    shaderMgr_ = shaderMgr;
+    config_ = config;
+    descriptorPool_ = descriptorPool;
+
+    Shader* vertexShader = shaderMgr_->getShader(config_.vertexShaderPath);
+    Shader* fragmentShader = shaderMgr_->getShader(config_.fragmentShaderPath);
+    createGraphicsPipeline({ vertexShader, fragmentShader });
 }
 
-void VulkanPipeline::createGraphicsPipeline() {
-    // 셰이더 로드 및 모듈 생성
-    auto vertShaderCode = readFile("shaders/shader.vert.spv");
-    auto fragShaderCode = readFile("shaders/shader.frag.spv");
+void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    shaderStages.reserve(shaders.size());
 
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+    for (const Shader* shader : shaders) {
+        shaderStages.push_back(shader->stageInfo_);
 
-    // 셰이더 스테이지 설정
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+    }
 
     // Pipeline 구성 요소들 생성
     auto vertexInputInfo = createVertexInputState();
@@ -98,10 +96,10 @@ void VulkanPipeline::createGraphicsPipeline() {
     depthStencilInfo.stencilTestEnable = VK_FALSE;
 
     // Pipeline Layout 생성
-    createPipelineLayout();
+    createPipelineLayout(shaders);
 
     // Dynamic Rendering을 위한 Pipeline Rendering Create Info
-    VkFormat colorFormat = swapChain->getSwapChainImageFormat();
+    VkFormat colorFormat = swapChain_->getSwapChainImageFormat();
     auto pipelineRenderingCreateInfo = createDynamicRenderingInfo(colorFormat);
 
     // Graphics Pipeline 생성
@@ -109,7 +107,7 @@ void VulkanPipeline::createGraphicsPipeline() {
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = &pipelineRenderingCreateInfo; // Dynamic Rendering 정보 연결
     pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
@@ -122,47 +120,77 @@ void VulkanPipeline::createGraphicsPipeline() {
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(context_->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-
-    // 셰이더 모듈 정리
-    vkDestroyShaderModule(context->getDevice(), fragShaderModule, nullptr);
-    vkDestroyShaderModule(context->getDevice(), vertShaderModule, nullptr);
-
-    std::cout << "Graphics pipeline created with Dynamic Rendering and Depth Testing!" << std::endl;
 }
+
+void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
+    for (const Shader* shader : shaders) {
+        for (const auto& [setNumber, bindings] : shader->descriptorSetLayouts_) {
+            for (const auto& binding : bindings) {
+				const VkDescriptorSetLayoutBinding& bindingInfo = binding.bindingInfo;
+                descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].resourceName = binding.resourceName;
+                descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].bindingInfo = bindingInfo;
+            }
+        }
+    }
+    VkDevice device = context_->getDevice();
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    descriptorSetLayouts.resize(descriptorSetLayoutBindingMap_.size());
+
+    for (const auto& [setNumber, bindingsMap] : descriptorSetLayoutBindingMap_) {
+        // 맵의 바인딩 정보들을 벡터로 변환합니다.
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
+        for (const auto& [bindingNumber, bindingInfo] : bindingsMap) {
+            bindings.push_back(bindingInfo.bindingInfo);
+        }
+
+        descriptorSetLayouts[setNumber] = descriptorPool_->layoutCache_.getLayout(bindings);
+    }
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.empty() ? nullptr : descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    if (vkCreatePipelineLayout(context_->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+}
+
 
 void VulkanPipeline::recreate() {
     // 기존 Pipeline 정리
     if (graphicsPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(context->getDevice(), graphicsPipeline, nullptr);
+        vkDestroyPipeline(context_->getDevice(), graphicsPipeline, nullptr);
         graphicsPipeline = VK_NULL_HANDLE;
     }
 
     if (pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(context->getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
 
-    // 새로운 Pipeline 생성
-    createGraphicsPipeline();
+    Shader* vertexShader = shaderMgr_->getShader(config_.vertexShaderPath);
+    Shader* fragmentShader = shaderMgr_->getShader(config_.fragmentShaderPath);
+    createGraphicsPipeline({ vertexShader , fragmentShader });
 
     std::cout << "Pipeline recreated successfully!" << std::endl;
 }
 
 void VulkanPipeline::cleanup() {
-    if (!context || !context->getDevice()) {
+    if (!context_ || !context_->getDevice()) {
         return;
     }
 
     if (graphicsPipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(context->getDevice(), graphicsPipeline, nullptr);
+        vkDestroyPipeline(context_->getDevice(), graphicsPipeline, nullptr);
         graphicsPipeline = VK_NULL_HANDLE;
     }
 
     if (pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(context->getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
 }
@@ -170,56 +198,6 @@ void VulkanPipeline::cleanup() {
 void VulkanPipeline::bindPipeline(VkCommandBuffer commandBuffer)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-}
-
-std::vector<char> VulkanPipeline::readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file: " + filename);
-    }
-
-    size_t fileSize = (size_t) file.tellg();
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
-
-VkShaderModule VulkanPipeline::createShaderModule(const std::vector<char>& code) {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(context->getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module!");
-    }
-
-    return shaderModule;
-}
-
-void VulkanPipeline::createPipelineLayout() {
-    std::vector<VkDescriptorSetLayout> setLayouts;
-    setLayouts.reserve(descriptorSetLayouts_.size());
-    for (const VkDescriptorSetLayout* layoutPtr : descriptorSetLayouts_) {
-        if (layoutPtr) {
-            setLayouts.push_back(*layoutPtr);
-        }
-    }
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
-    pipelineLayoutInfo.pSetLayouts = setLayouts.empty() ? nullptr : setLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create pipeline layout!");
-    }
 }
 
 VkPipelineVertexInputStateCreateInfo VulkanPipeline::createVertexInputState() {
@@ -248,13 +226,13 @@ VkPipelineInputAssemblyStateCreateInfo VulkanPipeline::createInputAssemblyState(
 VkPipelineViewportStateCreateInfo VulkanPipeline::createViewportState(VkViewport& viewport, VkRect2D& scissor) {
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float) swapChain->getSwapChainExtent().width;
-    viewport.height = (float) swapChain->getSwapChainExtent().height;
+    viewport.width = (float) swapChain_->getSwapChainExtent().width;
+    viewport.height = (float) swapChain_->getSwapChainExtent().height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     scissor.offset = {0, 0};
-    scissor.extent = swapChain->getSwapChainExtent();
+    scissor.extent = swapChain_->getSwapChainExtent();
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -314,7 +292,7 @@ VkPipelineRenderingCreateInfo VulkanPipeline::createDynamicRenderingInfo(VkForma
     pipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
     
     // Depth Buffer 포맷 설정
-    pipelineRenderingCreateInfo.depthAttachmentFormat = swapChain->getDepthFormat();
+    pipelineRenderingCreateInfo.depthAttachmentFormat = swapChain_->getDepthFormat();
     pipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // 스텐실은 사용 안 함
 
     return pipelineRenderingCreateInfo;

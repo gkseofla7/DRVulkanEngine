@@ -16,6 +16,10 @@ UniformBuffer::UniformBuffer(const VulkanContext* ctx, VkDeviceSize size) {
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         buffer_,
         bufferMemory_);
+
+    bufferInfo_.buffer = buffer_;
+    bufferInfo_.offset = 0;
+    bufferInfo_.range = bufferSize_;
 }
 
 UniformBuffer::~UniformBuffer() {
@@ -39,4 +43,13 @@ void UniformBuffer::update(const void* data) {
     // 6. 메모리 매핑을 해제합니다.
     // (HOST_COHERENT 속성 덕분에 vkFlushMappedMemoryRanges를 호출할 필요가 없습니다.)
     vkUnmapMemory(context->getDevice(), bufferMemory_);
+}
+
+void UniformBuffer::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
+{
+    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeInfo.dstBinding = binding_;
+    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeInfo.pBufferInfo = &bufferInfo_;
+    writeInfo.pImageInfo = nullptr;
 }

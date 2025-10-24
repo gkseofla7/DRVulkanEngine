@@ -1,29 +1,26 @@
-// UniformBuffer.h
-
 #pragma once
-
-#include "Resource.h" // 부모 클래스 포함
+#include "Resource.h"
 #include <vulkan/vulkan.h>
+
+class VulkanContext;
 
 class UniformBuffer : public Resource {
 public:
-
     UniformBuffer(const VulkanContext* context, VkDeviceSize size);
     ~UniformBuffer();
 
     void update(const void* data);
-
     VkBuffer getBuffer() const { return buffer_; }
-    VkDescriptorBufferInfo GetDescriptorBufferInfo() const {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = buffer_;
-        bufferInfo.offset = 0;
-        bufferInfo.range = bufferSize_;
-        return bufferInfo;
-	}
+
+    virtual void populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const override;
 
 private:
-    VkBuffer       buffer_ = VK_NULL_HANDLE;
+    uint32_t binding_;
+    VkBuffer buffer_ = VK_NULL_HANDLE;
     VkDeviceMemory bufferMemory_ = VK_NULL_HANDLE;
-    VkDeviceSize   bufferSize_ = 0;
+    VkDeviceSize bufferSize_ = 0;
+
+    VkDescriptorBufferInfo bufferInfo_;
+
+    const VulkanContext* context_;
 };

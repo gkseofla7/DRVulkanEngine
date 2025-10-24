@@ -73,6 +73,15 @@ VulkanContext& VulkanContext::operator=(VulkanContext&& other) noexcept {
     return *this;
 }
 
+void VulkanContext::initialize(GLFWwindow* window)
+{
+    createInstance();
+    createSurface(window);
+    pickPhysicalDevice();
+    createLogicalDevice();
+    createCommandPool();
+}
+
 bool VulkanContext::checkValidationLayerSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -276,8 +285,18 @@ void VulkanContext::createLogicalDevice() {
     vulkan13Features.pNext = &dynamicRenderingFeature;
     vulkan13Features.dynamicRendering = VK_TRUE;
 
-    VkPhysicalDeviceFeatures deviceFeatures{};
 
+    VkPhysicalDeviceFeatures supportedFeatures;
+    vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
+    VkPhysicalDeviceFeatures deviceFeatures{};
+    if (supportedFeatures.samplerAnisotropy) {
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
+    }
+    else {
+        // 지원하지 않는 경우, 이 기능을 사용하려는 시도를 막아야 합니다.
+        // 예를 들어, 샘플러 생성 시 anisotropyEnable을 false로 설정하도록 플래그를 관리할 수 있습니다.
+        std::cout << "Warning: Sampler Anisotropy is not supported!" << std::endl;
+    }
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pNext = &vulkan13Features; // 기능 체인 연결

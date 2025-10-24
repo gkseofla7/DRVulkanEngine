@@ -4,7 +4,8 @@ class VulkanContext;
 class VulkanSwapChain;
 class Resource
 {
-
+public:
+	virtual void populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const = 0;
 protected:
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 

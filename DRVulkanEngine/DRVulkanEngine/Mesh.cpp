@@ -1,5 +1,6 @@
 #include "Mesh.h"
 #include "VulkanContext.h"
+#include "Texture.h"
 #include <stdexcept>
 
 Mesh::Mesh() {}
@@ -32,27 +33,13 @@ Mesh::Mesh(Mesh&& other) noexcept
     other.indexBufferMemory_ = VK_NULL_HANDLE;
 }
 
-void Mesh::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet& globalDescriptorSet)
+void Mesh::draw(VkCommandBuffer commandBuffer)
 {
     VkBuffer vertexBuffers[] = { vertexBuffer_ };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
-    std::array<VkDescriptorSet, 3> descriptorSetsToBind = {
-        globalDescriptorSet,
-        material_->getUboSet(),
-        material_->getTextureSet()
-    };
-    vkCmdBindDescriptorSets(commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout,
-        0, // firstSet: 디스크립터 셋 레이아웃 배열의 시작 인덱스
-        3, // descriptorSetCount: 바인딩할 디스크립터 셋의 개수
-        descriptorSetsToBind.data(),
-        0, // dynamicOffsetCount
-        nullptr); // pDynamicOffsets
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices_.size()), 1, 0, 0, 0);
 }
@@ -165,4 +152,29 @@ void Mesh::createIndexBuffer() {
     // 3. 원본 데이터를 'vertices' 대신 'indices' 벡터에서 가져옵니다.
     memcpy(data, indices_.data(), (size_t)bufferSize);
     vkUnmapMemory(context_->getDevice(), indexBufferMemory_);
+}
+
+void Mesh::prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_)
+{
+	static std::shared_ptr<Texture> defaultTexture = nullptr;
+    if (defaultTexture) {
+        if (defaultTexture == nullptr)
+        {
+            // 임시방편: 실제로는 Renderer 등 상위 클래스에서 미리 로드해야 합니다.
+            defaultTexture = std::make_shared<Texture>(context_, "../assets/images/minion.jpg");
+        }
+    }
+    textures_["texDiffuse"] = defaultTexture.get();
+    textures_["texSpecular"] = defaultTexture.get();
+    textures_["texNormal"] = defaultTexture.get();
+    textures_["texAmbient"] = defaultTexture.get();
+    textures_["texEmissive"] = defaultTexture.get();
+
+    textures_["texDiffuse"] = diffuseTexture_.get();
+    textures_["texSpecular"] = specularTexture_.get();
+    textures_["texNormal"] = normalTexture_.get();
+    textures_["texAmbient"] = ambientTexture_.get();
+    textures_["texEmissive"] = emissiveTexture_.get();
+
+	material_->prepareBindless(uniformBuffers_, textures_);
 }

@@ -79,6 +79,10 @@ void Texture::initialize(const std::string& filepath) {
     textureView_ = createImageView(texture_, VK_FORMAT_R8G8B8A8_SRGB);
 
     createTextureSampler();
+
+    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo_.imageView = textureView_;
+    imageInfo_.sampler = textureSampler_;
 }
 
 
@@ -291,4 +295,11 @@ void Texture::createTextureSampler() {
     if (vkCreateSampler(context->getDevice(), &samplerInfo, nullptr, &textureSampler_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture sampler!");
     }
+}
+
+void Texture::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
+{
+    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeInfo.pImageInfo = &imageInfo_;
 }

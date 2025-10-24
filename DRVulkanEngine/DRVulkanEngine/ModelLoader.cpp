@@ -7,54 +7,42 @@
 #include <iostream>
 #include "Texture.h"
 
-// --- Public API ---
-std::unique_ptr<Model> ModelLoader::LoadModel(const VulkanContext* context, const std::string& filedir, const std::string& filename) {
+bool ModelLoader::LoadModel(const VulkanContext* context, const std::string& filedir, const std::string& filename, std::vector<Mesh>& outMesh) {
     Assimp::Importer importer;
-
-    // --- 이 부분이 추가/수정된 부분입니다 ---
-    // 1. filedir와 filename을 합쳐 전체 파일 경로를 생성합니다.
-    //    경로 구분자는 '/'를 사용하는 것이 여러 운영체제에서 호환성이 좋습니다.
     std::string filepath = filedir + "/" + filename;
-    // --- 수정 끝 ---
 
-    // Assimp 플래그: 모델을 로드할 때 적용할 후처리 단계들
-    const unsigned int flags = aiProcess_Triangulate        // 모든 면을 삼각형으로
-        | aiProcess_FlipUVs            // 텍스처 Y축 뒤집기
-        | aiProcess_GenSmoothNormals   // 부드러운 법선 벡터 생성
-        | aiProcess_CalcTangentSpace;  // 탄젠트/바이탄젠트 생성
+    const unsigned int flags = aiProcess_Triangulate |
+        aiProcess_FlipUVs |
+        aiProcess_GenSmoothNormals |
+        aiProcess_CalcTangentSpace;
 
-    // 2. 합쳐진 filepath 변수를 사용하여 파일을 읽습니다.
     const aiScene* scene = importer.ReadFile(filepath, flags);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         std::cerr << "ASSIMP 에러: " << importer.GetErrorString() << std::endl;
-        return nullptr;
+        return false;
     }
 
-    // Model 객체를 먼저 생성하고, processNode를 통해 내용을 채웁니다.
-    auto model = std::make_unique<Model>(context);
-
-    processNode(context, scene->mRootNode, scene, filedir, *model);
-
-    return model;
+    processNode(context, scene->mRootNode, scene, filedir, outMesh);
+    return true;
 }
 
 // --- Private Helper Functions ---
 
-void ModelLoader::processNode(const VulkanContext* context, aiNode* node, const aiScene* scene, const std::string& filedir, Model& outModel) {
+void ModelLoader::processNode(const VulkanContext* context, aiNode* node, const aiScene* scene, const std::string& filedir, std::vector<Mesh>& outMesh) {
     // 1. 현재 노드에 속한 모든 메쉬를 처리합니다.
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-        outModel.addMesh(processMesh(context, mesh, scene, filedir));
+        processMesh(context, mesh, scene, filedir, outMesh);
     }
 
     // 2. 현재 노드의 모든 자식 노드에 대해 재귀적으로 이 함수를 호출합니다.
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
-        processNode(context, node->mChildren[i], scene, filedir, outModel);
+        processNode(context, node->mChildren[i], scene, filedir, outMesh);
     }
 }
 
-Mesh ModelLoader::processMesh(const VulkanContext* context, aiMesh* mesh, const aiScene* scene, const std::string& filedir) {
+void ModelLoader::processMesh(const VulkanContext* context, aiMesh* mesh, const aiScene* scene, const std::string& filedir, std::vector<Mesh>& outMeshes) {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices; // 더 많은 정점을 지원하기 위해 uint32_t가 좋음
     //std::vector<Texture> textures; // (향후) 재질/텍스처 데이터
@@ -87,7 +75,6 @@ Mesh ModelLoader::processMesh(const VulkanContext* context, aiMesh* mesh, const 
 
         vertices.push_back(vertex);
     }
-
     // 2. 인덱스(Index) 데이터 추출
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
         aiFace face = mesh->mFaces[i];
@@ -133,12 +120,13 @@ Mesh ModelLoader::processMesh(const VulkanContext* context, aiMesh* mesh, const 
         ambientTex = loadMaterialTexture(aiTextureType_AMBIENT);
         emissiveTex = loadMaterialTexture(aiTextureType_EMISSIVE);
     }
-    Mesh ret = {};
-    ret.initialize(context, vertices, indices,
+
+    outMeshes.emplace_back();
+    Mesh& newMeshRef = outMeshes.back();
+    newMeshRef.initialize(context, vertices, indices,
         diffuseTex,
         specularTex,
         normalTex,
         ambientTex,
 		emissiveTex);
-    return ret;
 }

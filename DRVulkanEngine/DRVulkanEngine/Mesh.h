@@ -4,6 +4,7 @@
 #include "Material.h"
 #include <vector>
 #include <memory>
+#include <map>
 class VulkanContext;
 class Texture;
 class Mesh
@@ -13,7 +14,10 @@ public:
     Mesh();
     ~Mesh();
     Mesh(Mesh&& other) noexcept;
-    void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet& globalDescriptorSet);
+    void draw(VkCommandBuffer commandBuffer);
+
+
+    void prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_);
 private:
     void initialize(const VulkanContext* context,
         const std::vector<Vertex>& inVertices,
@@ -36,7 +40,7 @@ private:
     std::vector<uint32_t> indices_;
 
     const VulkanContext* context_;
-
+public:
 	std::shared_ptr<Texture> diffuseTexture_;
 	std::shared_ptr<Texture> specularTexture_;
 	std::shared_ptr<Texture> normalTexture_;

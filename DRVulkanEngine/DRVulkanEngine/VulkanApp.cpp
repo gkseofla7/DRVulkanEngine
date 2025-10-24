@@ -4,11 +4,13 @@
 #include <fstream>
 #include <set>
 #include <algorithm>
+#include <unordered_map>
 #include "Camera.h"
 #include "Texture.h"
 #include "Model.h"
 #include "ModelLoader.h"
 #include "Material.h"
+#include "Shader.h"
 
 VulkanApp::VulkanApp()
     :camera(std::make_unique<Camera>(glm::vec3{ 0.0f, 3.0f, 5.0f },
@@ -36,25 +38,51 @@ void VulkanApp::initWindow() {
 }
 
 void VulkanApp::initVulkan() {
-    context_.createInstance();
-    context_.createSurface(window);
-    context_.pickPhysicalDevice();
-    context_.createLogicalDevice();
-    context_.createCommandPool();
-    createDescriptorSetLayout();
-    swapChain.initialize(&context_, window); // RenderPass 없이 SwapChain 초기화
-    Material::initializeLayouts(context_.getDevice());
+	context_.initialize(window);
+
+    //createDescriptorSetLayout();
+    swapChain.initialize(&context_, window);
+	shaderManager_.initialize(&context_);
+
     loadAssets();
+    descriptorPool_.initialize(&context_);
+	// Pipeline 초기화
+	PipelineConfig pipelineConfig{};
+	pipelineConfig.pipelineName = "default";
+	pipelineConfig.vertexShaderPath = "shaders/shader.vert.spv";
+	pipelineConfig.fragmentShaderPath = "shaders/shader.frag.spv";
+	pipeline.initialize(&context_, &swapChain, &descriptorPool_, &shaderManager_, pipelineConfig);
 
-    std::vector<VkDescriptorSetLayout*> descriptorSetLayouts;
-    descriptorSetLayouts.push_back(&descriptorSetLayout);
-    descriptorSetLayouts.push_back(&Material::getUboSetLayout());
-    descriptorSetLayouts.push_back(&Material::getTextureSetLayout());
+    std::unordered_map<std::string, std::vector<std::string>> pipelineDescriptorSetsMap;
+    std::string pipelineName = "default";
+    std::vector<std::string> descriptorSetNames = {
+        "modelUB",
+        "modelMaterial",
+        "modelTexture"
+    };
+    pipelineDescriptorSetsMap[pipelineName] = descriptorSetNames;
+    {
+        const std::map<uint32_t, std::map<uint32_t, LayoutBindingInfo>>& bindingMap = pipeline.GetDescriptorSetLayoutBindingMap();
+        for (const auto& [setIndex, bindings] : bindingMap) {
+			std::vector< VkDescriptorSetLayoutBinding> layoutBindings;
+			std::vector<Resource*> requiredResources;
+            for (const auto& [bindingIndex, layoutBinding] : bindings) {
+                layoutBindings.push_back(layoutBinding.bindingInfo);
+                if(uniformBuffers_.find(layoutBinding.resourceName) != uniformBuffers_.end())
+                {
+                    requiredResources.push_back(uniformBuffers_[layoutBinding.resourceName]);
+				}
+                else if (textures_.find(layoutBinding.resourceName) != textures_.end())
+                {
+                    requiredResources.push_back(textures_[layoutBinding.resourceName]);
+                }
+            }
 
-	pipeline.initialize(&context_, &swapChain, descriptorSetLayouts);
-    createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
+            DescriptorSet descriptorSet{};
+            descriptorSet.initialize(&context_, &descriptorPool_, descriptorPool_.layoutCache_.getLayout(layoutBindings), requiredResources);
+            commonDescriptorSet_.push_back(descriptorSet);
+		}
+    }
     createCommandBuffers();
     createSyncObjects();
 }
@@ -82,7 +110,6 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
-    // 이미지 레이아웃 전환 (UNDEFINED -> COLOR_ATTACHMENT_OPTIMAL)
     VkImageMemoryBarrier imageBarrier{};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -107,9 +134,12 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     auto renderingInfo = swapChain.getRenderingInfo(imageIndex);
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-	pipeline.bindPipeline(commandBuffer);    
-	model_->draw(commandBuffer, pipeline.getPipelineLayout(), descriptorSets[currentFrame]);
-
+	pipeline.bindPipeline(commandBuffer);
+    for (Model& model : models_)
+    {
+        model.draw(commandBuffer);
+    }
+	
     vkCmdEndRendering(commandBuffer);
 
     // 이미지 레이아웃 전환 (COLOR_ATTACHMENT_OPTIMAL -> PRESENT_SRC)
@@ -158,7 +188,6 @@ void VulkanApp::mainLoop() {
 }
 
 void VulkanApp::cleanup() {
-    Material::destroyLayouts(context_.getDevice());
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(context_.getDevice(), renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(context_.getDevice(), imageAvailableSemaphores[i], nullptr);
@@ -234,85 +263,6 @@ void VulkanApp::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-std::vector<char> VulkanApp::readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t) file.tellg();
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-
-    file.close();
-
-    return buffer;
-}
-
-VkShaderModule VulkanApp::createShaderModule(const std::vector<char>& code) {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(context_.getDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module!");
-    }
-
-    return shaderModule;
-}
-
-// VulkanApp.cpp
-
-void VulkanApp::createUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    size_t swapChainImageCount = swapChain.getImageCount();
-
-    // 스왑체인 이미지 개수만큼 버퍼와 메모리 핸들을 담을 공간을 미리 확보합니다.
-    uniformBuffers.resize(swapChainImageCount);
-    uniformBuffersMemory.resize(swapChainImageCount);
-    uniformBuffersMapped.resize(swapChainImageCount);
-
-    // 각 스왑체인 이미지에 대해 루프를 돕니다.
-    for (size_t i = 0; i < swapChainImageCount; i++) {
-        // 버퍼 생성
-        VkBufferCreateInfo bufferInfo{};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = bufferSize;
-        bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateBuffer(context_.getDevice(), &bufferInfo, nullptr, &uniformBuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create uniform buffer!");
-        }
-
-        // 메모리 요구사항 확인 및 할당
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(context_.getDevice(), uniformBuffers[i], &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        //CPU에서 접근 가능하고(HOST_VISIBLE), 쓰기 즉시 GPU에 반영되는(HOST_COHERENT) 속성으로 메모리를 찾습니다.
-        allocInfo.memoryTypeIndex = context_.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        if (vkAllocateMemory(context_.getDevice(), &allocInfo, nullptr, &uniformBuffersMemory[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate uniform buffer memory!");
-        }
-
-        // 버퍼와 메모리 바인딩
-        vkBindBufferMemory(context_.getDevice(), uniformBuffers[i], uniformBuffersMemory[i], 0);
-
-        //핵심: 메모리를 영구적으로 매핑하고, 그 주소를 uniformBuffersMapped에 저장합니다.
-        // unmap을 호출하지 않으므로, 이 주소는 프로그램 종료 전까지 계속 유효합니다.
-        vkMapMemory(context_.getDevice(), uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
-    }
-}
-
 void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject ubo{};
 
@@ -325,97 +275,42 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
     ubo.proj = camera->getProjectionMatrix(45.0f,
         swapChain.getSwapChainExtent().width / (float)swapChain.getSwapChainExtent().height,
         0.1f, 10.0f);
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+	models_[0].updateUniformBuffer(ubo.world, ubo.view, ubo.proj);
 }
 
-void VulkanApp::createDescriptorSetLayout() {
-    // 1. Uniform Buffer Object(UBO) 바인딩 정의 (binding = 0)
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // 버텍스 셰이더에서 사용
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+//void VulkanApp::createDescriptorSetLayout() {
+//    // 1. Uniform Buffer Object(UBO) 바인딩 정의 (binding = 0)
+//    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+//    uboLayoutBinding.binding = 0;
+//    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//    uboLayoutBinding.descriptorCount = 1;
+//    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // 버텍스 셰이더에서 사용
+//    uboLayoutBinding.pImmutableSamplers = nullptr;
+//
+//    // 2. Combined Image Sampler 바인딩 정의 (binding = 1)
+//    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+//    samplerLayoutBinding.binding = 1; // 셰이더의 layout(binding = 1)과 일치
+//    samplerLayoutBinding.descriptorCount = 1;
+//    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    samplerLayoutBinding.pImmutableSamplers = nullptr;
+//    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // 프래그먼트 셰이더에서 사용
+//
+//    // 3. 위에서 정의한 바인딩들을 배열에 담습니다.
+//    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding };
+//
+//    // 4. 레이아웃 생성 정보 업데이트
+//    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+//    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+//    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size()); // 바인딩 개수를 2로 설정
+//    layoutInfo.pBindings = bindings.data(); // 바인딩 배열의 포인터를 전달
+//
+//    if (vkCreateDescriptorSetLayout(context_.getDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+//        throw std::runtime_error("failed to create descriptor set layout!");
+//    }
+//}
 
-    // 2. Combined Image Sampler 바인딩 정의 (binding = 1)
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1; // 셰이더의 layout(binding = 1)과 일치
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // 프래그먼트 셰이더에서 사용
-
-    // 3. 위에서 정의한 바인딩들을 배열에 담습니다.
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { uboLayoutBinding, samplerLayoutBinding };
-
-    // 4. 레이아웃 생성 정보 업데이트
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size()); // 바인딩 개수를 2로 설정
-    layoutInfo.pBindings = bindings.data(); // 바인딩 배열의 포인터를 전달
-
-    if (vkCreateDescriptorSetLayout(context_.getDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-}
-void VulkanApp::createDescriptorPool() {
-    std::vector<VkDescriptorPoolSize> poolSizes(2);
-
-    // UBO를 위한 풀 크기
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChain.getImageCount());
-
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChain.getImageCount());
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = static_cast<uint32_t>(swapChain.getImageCount());
-
-    if (vkCreateDescriptorPool(context_.getDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
-}
-void VulkanApp::createDescriptorSets() {
-    std::vector<VkDescriptorSetLayout> layouts(swapChain.getImageCount(), descriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChain.getImageCount());
-    allocInfo.pSetLayouts = layouts.data();
-
-    descriptorSets.resize(swapChain.getImageCount());
-    if (vkAllocateDescriptorSets(context_.getDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor sets!");
-    }
-
-    // 할당된 각 디스크립터 셋에 실제 리소스 정보를 기록(업데이트)합니다.
-    for (size_t i = 0; i < swapChain.getImageCount(); i++) {
-        // 1. UBO 정보 설정 (binding = 0)
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-
-        std::vector<VkWriteDescriptorSet> descriptorWrites(1);
-        // UBO 쓰기 작업 설정
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-        vkUpdateDescriptorSets(context_.getDevice(),
-            static_cast<uint32_t>(descriptorWrites.size()),
-            descriptorWrites.data(),
-            0, nullptr);
-    }
-}
 
 void VulkanApp::loadAssets() {
-    model_ = ModelLoader::LoadModel(&context_, "../assets/models/mouseModel", "mouseModel.fbx");
+	models_.push_back(Model(&context_, "../assets/models/mouseModel", "mouseModel.fbx"));
+	models_[0].prepareBindless(uniformBuffers_, textures_);
 }

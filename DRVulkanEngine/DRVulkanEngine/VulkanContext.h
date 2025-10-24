@@ -54,6 +54,7 @@ public:
     VulkanContext& operator=(VulkanContext&& other) noexcept;
 
     // 초기화 및 정리
+	void initialize(GLFWwindow* window);
     void createInstance();
     void createSurface(GLFWwindow* window);
     void pickPhysicalDevice();
