@@ -8,8 +8,8 @@ VkVertexInputBindingDescription Vertex::getBindingDescription() {
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 5> Vertex::getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{};
+std::array<VkVertexInputAttributeDescription, 7> Vertex::getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 7> attributeDescriptions{};
 
     // location 0: Position
     attributeDescriptions[0].binding = 0;
@@ -35,23 +35,23 @@ std::array<VkVertexInputAttributeDescription, 5> Vertex::getAttributeDescription
     attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[3].offset = offsetof(Vertex, tangent);
 
-    // location 3: Bitangent
+    // location 4: Bitangent
     attributeDescriptions[4].binding = 0;
     attributeDescriptions[4].location = 4;
     attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[4].offset = offsetof(Vertex, bitangent);
 
-    //// location 4: Bone IDs
-    //attributeDescriptions[4].binding = 0;
-    //attributeDescriptions[4].location = 4;
-    //attributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SINT; // 4개의 정수
-    //attributeDescriptions[4].offset = offsetof(Vertex, boneIDs);
+    //// location 5: Bone IDs
+    attributeDescriptions[5].binding = 0;
+    attributeDescriptions[5].location = 5;
+    attributeDescriptions[5].format = VK_FORMAT_R32G32B32A32_SINT;
+    attributeDescriptions[5].offset = offsetof(Vertex, boneIDs);
 
-    //// location 5: Bone Weights
-    //attributeDescriptions[5].binding = 0;
-    //attributeDescriptions[5].location = 5;
-    //attributeDescriptions[5].format = VK_FORMAT_R32G32B32A32_SFLOAT; // 4개의 실수
-    //attributeDescriptions[5].offset = offsetof(Vertex, weights);
+    // location = 6, weights
+    attributeDescriptions[6].binding = 0;
+    attributeDescriptions[6].location = 6;
+    attributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SFLOAT; // 실수형(SFLOAT)
+    attributeDescriptions[6].offset = offsetof(Vertex, weights);
 
     return attributeDescriptions;
 }

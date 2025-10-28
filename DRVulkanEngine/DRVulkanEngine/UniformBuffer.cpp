@@ -47,6 +47,7 @@ void UniformBuffer::update(const void* data) {
 
 void UniformBuffer::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
 {
+    writeInfo.descriptorCount = 1;
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeInfo.dstBinding = binding_;
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;

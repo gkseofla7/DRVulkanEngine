@@ -15,9 +15,11 @@
 #include <memory>
 #include "Vertex.h"
 #include "ShaderManager.h"
+#include "TextureArray.h"
 #include "DescriptorSet.h"
 #include "DescriptorPool.h"
 #include "UniformBuffer.h"
+#include "UniformBufferArray.h"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -27,7 +29,10 @@ class Model;
 // 삼각형 정점 데이터 구조체
 
 
-
+struct UniformBufferScene {
+    alignas(16) glm::vec3 lightPos;
+    alignas(16) glm::vec3 viewPos;
+};
 
 class VulkanApp {
 public:
@@ -44,6 +49,7 @@ private:
     void createSyncObjects();
     void mainLoop();
     void cleanup();
+    void update();
     void drawFrame();
 
     void updateUniformBuffer(uint32_t currentImage);
@@ -54,7 +60,7 @@ private:
     GLFWwindow* window;
     VulkanContext context_;
     VulkanSwapChain swapChain;
-    VulkanPipeline pipeline;
+    VulkanPipeline pipeline_;
 
     ShaderManager shaderManager_;
 
@@ -64,7 +70,7 @@ private:
     std::vector<VkFence> inFlightFences;
     size_t currentFrame = 0;
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-    std::unique_ptr<Camera> camera;
+    std::unique_ptr<Camera> camera_;
 
 
     VkDescriptorSetLayout descriptorSetLayout;
@@ -74,8 +80,16 @@ private:
 
     std::vector<Model> models_;
 
-	std::map<std::string, UniformBuffer*> uniformBuffers_;
-	std::map<std::string, Texture*> textures_;
+	//std::map<std::string, UniformBuffer*> uniformBuffers_;
+	//std::map<std::string, Texture*> textures_;
 
+    std::map<std::string, Resource*> resources_;
 
+    std::unique_ptr<class UniformBuffer> sceneUB_;
+    TextureArray textureArray_;
+    UniformBufferArray materialUbArray_;
+    UniformBufferArray modelUbArray_;
+    UniformBufferArray boneUbArray_;
+
+    std::unique_ptr<Texture> defaultTexture_;
 };

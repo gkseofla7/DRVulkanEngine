@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 
 
-const int MAX_BONES_PER_VERTEX = 4; // 한 정점에 영향을 주는 최대 뼈 개수
+#define MAX_BONE_INFLUENCE 4
 
 struct Vertex {
     glm::vec3 pos;      // 위치 (Position)
@@ -14,9 +14,9 @@ struct Vertex {
     glm::vec3 bitangent;
 
     // --- 스켈레탈 애니메이션 데이터 ---
-   // int   boneIDs[MAX_BONES_PER_VERTEX];  // 영향을 주는 뼈의 ID
-    //float weights[MAX_BONES_PER_VERTEX]; // 각 뼈의 영향력 (가중치)
+    int boneIDs[MAX_BONE_INFLUENCE];
+    float weights[MAX_BONE_INFLUENCE];
 
     static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions();
+    static std::array<VkVertexInputAttributeDescription, 7> getAttributeDescriptions();
 };

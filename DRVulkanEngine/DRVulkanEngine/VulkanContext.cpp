@@ -257,12 +257,12 @@ void VulkanContext::pickPhysicalDevice() {
               << "." << VK_VERSION_MINOR(deviceProperties.apiVersion) 
               << "." << VK_VERSION_PATCH(deviceProperties.apiVersion) << std::endl;
 }
-
 void VulkanContext::createLogicalDevice() {
+    // 1. 필요한 큐(Graphics, Present) 패밀리 인덱스 찾기
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -274,38 +274,46 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    // Dynamic Rendering 기능 활성화
-    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
-    dynamicRenderingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-    dynamicRenderingFeature.dynamicRendering = VK_TRUE;
+    // 2. 활성화할 GPU 기능들을 pNext 체인으로 구성
+    // 체인 3: 디스크립터 인덱싱 기능 (가장 마지막)
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
+    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    indexingFeatures.pNext = nullptr; // 체인의 끝
+    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE; // 부분적으로 바인딩된 디스크립터 허용
 
-    // Vulkan 1.3 기능 활성화
+    // 체인 2: Vulkan 1.3 기능 (디스크립터 인덱싱 기능을 연결)
     VkPhysicalDeviceVulkan13Features vulkan13Features{};
     vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    vulkan13Features.pNext = &dynamicRenderingFeature;
+    vulkan13Features.pNext = &indexingFeatures; // 다음 체인으로 indexingFeatures 연결
     vulkan13Features.dynamicRendering = VK_TRUE;
 
+    // 체인 1: 모든 기능 체인을 관리할 최상위 구조체 (Vulkan 1.3 기능을 연결)
+    VkPhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceFeatures2.pNext = &vulkan13Features; // 다음 체인으로 vulkan13Features 연결
 
+    // 샘플러 비등방성 필터링과 같은 기본 기능은 deviceFeatures2.features에 직접 설정
     VkPhysicalDeviceFeatures supportedFeatures;
     vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
-    VkPhysicalDeviceFeatures deviceFeatures{};
     if (supportedFeatures.samplerAnisotropy) {
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
+        deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
     }
     else {
-        // 지원하지 않는 경우, 이 기능을 사용하려는 시도를 막아야 합니다.
-        // 예를 들어, 샘플러 생성 시 anisotropyEnable을 false로 설정하도록 플래그를 관리할 수 있습니다.
         std::cout << "Warning: Sampler Anisotropy is not supported!" << std::endl;
     }
+
+    // 3. Logical Device 생성 정보 구성
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pNext = &vulkan13Features; // 기능 체인 연결
+    createInfo.pNext = &deviceFeatures2; // 최상위 기능 구조체인 deviceFeatures2를 pNext에 연결
 
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-    createInfo.pEnabledFeatures = &deviceFeatures;
+    // VkPhysicalDeviceFeatures2를 사용할 때는 pEnabledFeatures를 반드시 nullptr로 설정해야 함
+    createInfo.pEnabledFeatures = nullptr;
 
+    // 필요한 디바이스 확장 목록
     std::vector<const char*> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
@@ -313,22 +321,25 @@ void VulkanContext::createLogicalDevice() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-    // Device 레벨에서도 Validation Layer 활성화 (구버전 호환성)
+    // 디바이스 레벨 Validation Layer 활성화 (구버전 호환성을 위함)
     if (enableValidationLayers) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
-    } else {
+    }
+    else {
         createInfo.enabledLayerCount = 0;
     }
 
+    // 4. Logical Device 생성
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
     }
 
+    // 5. 생성된 디바이스로부터 큐 핸들 가져오기
     vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
-    std::cout << "Logical device created with Dynamic Rendering support!" << std::endl;
+    std::cout << "Logical device created with Dynamic Rendering and Descriptor Indexing support!" << std::endl;
 }
 
 void VulkanContext::createCommandPool() {

@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "DescriptorPool.h"
+#include "DescriptorSet.h"
 
 // Vertex 구조체 구현 (VulkanApp.cpp에서 이동)
 
@@ -17,13 +18,13 @@ VulkanPipeline::~VulkanPipeline() {
 }
 
 VulkanPipeline::VulkanPipeline(VulkanPipeline&& other) noexcept
-    : pipelineLayout(other.pipelineLayout)
+    : pipelineLayout_(other.pipelineLayout_)
     , graphicsPipeline(other.graphicsPipeline)
     , context_(other.context_)
     , swapChain_(other.swapChain_) {
     
     // 이동된 객체의 핸들들을 무효화
-    other.pipelineLayout = VK_NULL_HANDLE;
+    other.pipelineLayout_ = VK_NULL_HANDLE;
     other.graphicsPipeline = VK_NULL_HANDLE;
     other.context_ = nullptr;
     other.swapChain_ = nullptr;
@@ -33,12 +34,12 @@ VulkanPipeline& VulkanPipeline::operator=(VulkanPipeline&& other) noexcept {
     if (this != &other) {
         cleanup();
         
-        pipelineLayout = other.pipelineLayout;
+        pipelineLayout_ = other.pipelineLayout_;
         graphicsPipeline = other.graphicsPipeline;
         context_ = other.context_;
         swapChain_ = other.swapChain_;
         
-        other.pipelineLayout = VK_NULL_HANDLE;
+        other.pipelineLayout_ = VK_NULL_HANDLE;
         other.graphicsPipeline = VK_NULL_HANDLE;
         other.context_ = nullptr;
         other.swapChain_ = nullptr;
@@ -94,7 +95,7 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.stencilTestEnable = VK_FALSE;
-
+    
     // Pipeline Layout 생성
     createPipelineLayout(shaders);
 
@@ -106,7 +107,7 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = &pipelineRenderingCreateInfo; // Dynamic Rendering 정보 연결
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -115,10 +116,11 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDepthStencilState = &depthStencilInfo; // Depth Stencil State 추가
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineLayout_;
     pipelineInfo.renderPass = VK_NULL_HANDLE; // Dynamic Rendering에서는 null
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
     if (vkCreateGraphicsPipelines(context_->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
@@ -130,8 +132,15 @@ void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
         for (const auto& [setNumber, bindings] : shader->descriptorSetLayouts_) {
             for (const auto& binding : bindings) {
 				const VkDescriptorSetLayoutBinding& bindingInfo = binding.bindingInfo;
-                descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].resourceName = binding.resourceName;
-                descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].bindingInfo = bindingInfo;
+                if (descriptorSetLayoutBindingMap_.contains(setNumber) && descriptorSetLayoutBindingMap_[setNumber].contains(bindingInfo.binding))
+                {
+                    descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].bindingInfo.stageFlags |= bindingInfo.stageFlags;
+                }
+                else
+                {
+                    descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].resourceName = binding.resourceName;
+                    descriptorSetLayoutBindingMap_[setNumber][bindingInfo.binding].bindingInfo = bindingInfo;
+                }
             }
         }
     }
@@ -140,7 +149,6 @@ void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
     descriptorSetLayouts.resize(descriptorSetLayoutBindingMap_.size());
 
     for (const auto& [setNumber, bindingsMap] : descriptorSetLayoutBindingMap_) {
-        // 맵의 바인딩 정보들을 벡터로 변환합니다.
         std::vector<VkDescriptorSetLayoutBinding> bindings;
         for (const auto& [bindingNumber, bindingInfo] : bindingsMap) {
             bindings.push_back(bindingInfo.bindingInfo);
@@ -149,12 +157,32 @@ void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
         descriptorSetLayouts[setNumber] = descriptorPool_->layoutCache_.getLayout(bindings);
     }
 
+    std::vector<VkPushConstantRange> totalPushConstantRanges;
+
+    for (const Shader* shader : shaders) {
+        for (const auto& range : shader->pushConstantRanges_) {
+            auto it = std::find_if(totalPushConstantRanges.begin(), totalPushConstantRanges.end(),
+                [&](const VkPushConstantRange& r) {
+                    return r.offset == range.offset && r.size == range.size;
+                });
+
+            if (it != totalPushConstantRanges.end()) {
+                it->stageFlags |= range.stageFlags;
+            }
+            else {
+                totalPushConstantRanges.push_back(range);
+            }
+        }
+    }
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.empty() ? nullptr : descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    if (vkCreatePipelineLayout(context_->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+
+    pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(totalPushConstantRanges.size());
+    pipelineLayoutInfo.pPushConstantRanges = totalPushConstantRanges.empty() ? nullptr : totalPushConstantRanges.data();
+    if (vkCreatePipelineLayout(context_->getDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 }
@@ -167,9 +195,9 @@ void VulkanPipeline::recreate() {
         graphicsPipeline = VK_NULL_HANDLE;
     }
 
-    if (pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
+    if (pipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout_, nullptr);
+        pipelineLayout_ = VK_NULL_HANDLE;
     }
 
     Shader* vertexShader = shaderMgr_->getShader(config_.vertexShaderPath);
@@ -189,15 +217,34 @@ void VulkanPipeline::cleanup() {
         graphicsPipeline = VK_NULL_HANDLE;
     }
 
-    if (pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
+    if (pipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(context_->getDevice(), pipelineLayout_, nullptr);
+        pipelineLayout_ = VK_NULL_HANDLE;
     }
 }
-
+void VulkanPipeline::setDescriptorSets(const std::vector<DescriptorSet>& inDescriptorSet)
+{
+    descriptorSets_ = inDescriptorSet;
+}
 void VulkanPipeline::bindPipeline(VkCommandBuffer commandBuffer)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+    std::vector< VkDescriptorSet> descriptorSets;
+    for (const DescriptorSet& ds : descriptorSets_)
+    {
+        descriptorSets.push_back(ds.getHandle());
+    }
+    vkCmdBindDescriptorSets(
+        commandBuffer,                      // 현재 기록 중인 커맨드 버퍼
+        VK_PIPELINE_BIND_POINT_GRAPHICS,    // 그래픽스 파이프라인에 바인딩
+        pipelineLayout_,                     // 파이프라인 생성 시 사용한 레이아웃
+        0,                                  // 바인딩할 첫 번째 descriptor set 번호 (set = 0)
+        descriptorSets.size(),                                  // 바인딩할 descriptor set의 개수
+        descriptorSets.data(),                     // 바인딩할 descriptor set 핸들의 배열 포인터
+        0,                                  // 동적 오프셋 개수 (없으면 0)
+        nullptr                             // 동적 오프셋 배열 포인터 (없으면 nullptr)
+    );
 }
 
 VkPipelineVertexInputStateCreateInfo VulkanPipeline::createVertexInputState() {

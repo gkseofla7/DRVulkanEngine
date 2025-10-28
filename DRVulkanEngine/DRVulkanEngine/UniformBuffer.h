@@ -11,7 +11,7 @@ public:
 
     void update(const void* data);
     VkBuffer getBuffer() const { return buffer_; }
-
+	VkDescriptorBufferInfo getBufferInfo() const { return bufferInfo_; }
     virtual void populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const override;
 
 private:

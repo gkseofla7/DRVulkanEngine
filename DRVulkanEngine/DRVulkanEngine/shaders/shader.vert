@@ -1,44 +1,82 @@
 #version 450
 
-// 입력(in) 변수: Vertex 구조체와 일치해야 합니다.
+#define MAX_OBJECTS 128
+#define MAX_BONES 100 // 최대 뼈 개수 (Animator와 일치시켜야 함)
+
+// --- 입력(in) 변수 ---
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inTangent;
-layout(location = 4) in vec3 inBitangent; // 필요하다면 C++에서 계산해서 넘겨주세요.
+layout(location = 4) in vec3 inBitangent;
+layout(location = 5) in ivec4 inBoneIDs;
+layout(location = 6) in vec4 inWeights;
 
-// 출력(out) 변수: 프래그먼트 셰이더로 넘겨줄 데이터
+// --- 출력(out) 변수 (기존과 동일) ---
 layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragTexCoord;
-layout(location = 3) out mat3 fragTBN; // Tangent, Bitangent, Normal 정보를 행렬 하나로 묶어서 전달
+layout(location = 3) out mat3 fragTBN;
 
-// Uniform 변수: UBO (이제 Model, View, Proj 모두 포함)
-// 렌더링 루프에서 오브젝트마다 업데이트되는 정보
-layout(set = 0, binding = 0) uniform UniformBufferObject {
+// --- 유니폼 및 푸시 상수 ---
+layout(push_constant) uniform PushConstants {
+    int modelUBIndex;
+    int materialIndex;
+    int boneUbIndex;
+} pc;
+
+// 바인딩 0: MVP 행렬 UBO (기존과 동일)
+layout(std140, set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-} ubo;
+} ubo[MAX_OBJECTS];
+
+// ★★★ 바인딩 1: 뼈 행렬 UBO (새로 추가) ★★★
+// (UBO 크기 제한에 걸릴 것 같다면 'buffer' 키워드를 사용해 SSBO로 변경 가능)
+layout(std140, set = 0, binding = 1) uniform BoneMatrices {
+    mat4 finalBones[MAX_BONES];
+} boneData[MAX_OBJECTS];
+
 
 void main() {
-    // 월드 좌표계에서의 정점 위치 계산
-    vec4 worldPos = ubo.model * vec4(inPosition, 1.0);
-    fragWorldPos = worldPos.xyz;
+    // 1. 현재 객체의 MVP 행렬을 가져옵니다. (기존과 동일)
+    mat4 currentModelMatrix = ubo[pc.modelUBIndex].model;
+    mat4 currentViewMatrix = ubo[pc.modelUBIndex].view;
+    mat4 currentProjMatrix = ubo[pc.modelUBIndex].proj;
 
-    // 최종 클립 공간 위치 계산
-    gl_Position = ubo.proj * ubo.view * worldPos;
+    mat4 totalBoneTransform = mat4(1.0f);
+    if (inWeights.x > 0.0) {
+        
+        // 3. 스키닝이 필요하므로, 이제 '가중치 합' 계산을 위해 0 행렬로 리셋합니다.
+        totalBoneTransform = mat4(0.0f); 
+        
+        for(int i = 0; i < 4; i++) {
+            // ID가 유효하고 가중치가 있는 뼈만 계산에 포함합니다.
+            if(inBoneIDs[i] < 0 || inWeights[i] == 0.0) {
+                continue;
+            }
+            
+            mat4 boneMatrix = boneData[pc.boneUbIndex].finalBones[inBoneIDs[i]];
+            totalBoneTransform += boneMatrix * inWeights[i];
+        }
+    }
+    
+    // 3. 최종 위치 계산 (뼈 변환을 먼저 적용)
+    vec4 animatedPos = totalBoneTransform * vec4(inPosition, 1.0);
+    vec4 worldPos = currentModelMatrix * animatedPos;
+    fragWorldPos = worldPos.xyz;
+    gl_Position = currentProjMatrix * currentViewMatrix * worldPos;
+
+    // 4. 법선, 탄젠트 등 방향 벡터에도 동일한 뼈 변환을 적용합니다.
+    // (mat3으로 캐스팅하여 위치 이동(translation) 정보는 제외)
+    mat3 boneTransformMat3 = mat3(totalBoneTransform);
+    vec3 T = normalize(mat3(currentModelMatrix) * (boneTransformMat3 * inTangent));
+    vec3 B = normalize(mat3(currentModelMatrix) * (boneTransformMat3 * inBitangent));
+    vec3 N = normalize(mat3(currentModelMatrix) * (boneTransformMat3 * inNormal));
+    fragTBN = mat3(T, B, N);
+    fragNormal = N;
 
     // 텍스처 좌표는 그대로 전달
     fragTexCoord = inTexCoord;
-
-    // 법선, 탄젠트, 바이탄젠트를 월드 공간으로 변환 (회전만 적용)
-    // mat3(ubo.model)은 모델 행렬에서 스케일과 이동을 제외한 순수 회전 정보만 가져옵니다.
-    vec3 T = normalize(mat3(ubo.model) * inTangent);
-    vec3 B = normalize(mat3(ubo.model) * inBitangent);
-    vec3 N = normalize(mat3(ubo.model) * inNormal);
-    fragTBN = mat3(T, B, N); // TBN 행렬 생성
-
-    // fragNormal은 디버깅이나 간단한 조명에 사용할 수 있도록 따로 전달
-    fragNormal = N;
 }

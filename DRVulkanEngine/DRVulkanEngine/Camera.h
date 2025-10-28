@@ -35,6 +35,8 @@ public:
 
         return proj;
     }
+
+    glm::vec3 getPosition() { return m_Position; }
 private:
     glm::vec3 m_Position; // 카메라의 월드 공간 위치
     glm::vec3 m_Front;    // 카메라가 바라보는 방향 벡터

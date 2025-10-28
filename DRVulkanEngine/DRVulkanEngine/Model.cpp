@@ -3,41 +3,72 @@
 #include "Material.h"
 #include "ModelLoader.h"
 #include "UniformBuffer.h"
+#include "TextureArray.h"
+#include "UniformBufferArray.h"
+#include "GlobalData.h"
+#include "Animator.h"
+#include "Animation.h"
 
 Model::Model(const VulkanContext* context, const std::string& filedir, const std::string& filename) {
     context_ = context; // Resource 클래스로부터 상속받은 context_
-    ModelLoader::LoadModel(context_, filedir, filename, meshes_);
-
+    bool modelLoaded = ModelLoader::LoadSkinnedModel(context_, filedir, filename, meshes_);
+    bool animLoaded = ModelLoader::LoadAnimations(context_, filedir, "mouseModelAnim.fbx", animations_);
+    if (animations_.size() > 0) {
+        animator_ = std::make_unique<class Animator>(&animations_[0]);
+    }
+    
 	modelUB_ = std::make_unique<class UniformBuffer>(context_, sizeof(UniformBufferObject));
+    boneUB_ = std::make_unique<class UniformBuffer>(context_, sizeof(UniformBufferBone));
 }
-
-
 
 Model::~Model() {
 
 }
 
 
-
-void Model::prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_)
+void Model::prepareBindless(UniformBufferArray& modelUbArray, UniformBufferArray& materialUbArray, UniformBufferArray& boneUbArray, TextureArray& textures)
 {
-	uniformBuffers_["UniformBufferObject"] = modelUB_.get();
-    textures_["texDiffuse"] = meshes_[0].diffuseTexture_.get();
-    textures_["texSpecular"] = meshes_[0].specularTexture_.get();
-    textures_["texNormal"] = meshes_[0].normalTexture_.get();
-    textures_["texAmbient"] = meshes_[0].ambientTexture_.get();
-    textures_["texEmissive"] = meshes_[0].emissiveTexture_.get();
+    modelUbIndex_ = modelUbArray.addUniformBuffer(modelUB_.get());
+	boneUbIndex_ = boneUbArray.addUniformBuffer(boneUB_.get());
+    meshes_[0].prepareBindless(materialUbArray, textures);
 }
 
 void Model::addMesh(Mesh&& mesh) {
     meshes_.push_back(std::move(mesh));
 }
 
+void Model::update(float deltaTime) {
+    if (animator_) {
+        UniformBufferBone ubBone;
+        animator_->updateAnimation(deltaTime);
+        const auto& finalBoneMatrices = animator_->getFinalBoneMatrices();
 
-void Model::draw(VkCommandBuffer commandBuffer){
-    // 이 모델이 가진 모든 메쉬를 순회하며 그립니다.
+        size_t matricesToCopy = std::min((size_t)MAX_BONES, finalBoneMatrices.size());
+
+        if (!finalBoneMatrices.empty()) {
+            memcpy(&ubBone.finalBoneMatrix, finalBoneMatrices.data(), sizeof(glm::mat4) * matricesToCopy);
+        }
+        boneUB_->update(&ubBone);
+    }
+}
+
+void Model::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
     for (auto& mesh : meshes_) {
-		mesh.draw(commandBuffer);
+
+        PushConstantData pushData{};
+        pushData.modelUBIndex = modelUbIndex_;
+        pushData.boneUbIndex = boneUbIndex_;
+        pushData.materialIndex = mesh.getMaterial()->getMaterialIndex();
+
+        vkCmdPushConstants(
+            commandBuffer,
+            pipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(PushConstantData),
+            &pushData
+        );
+        mesh.draw(commandBuffer, pipelineLayout);
     }
 }
 

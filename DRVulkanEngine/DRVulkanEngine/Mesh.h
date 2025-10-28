@@ -7,6 +7,9 @@
 #include <map>
 class VulkanContext;
 class Texture;
+class TextureArray;
+class UniformBufferArray;
+
 class Mesh
 {
 public:
@@ -14,10 +17,11 @@ public:
     Mesh();
     ~Mesh();
     Mesh(Mesh&& other) noexcept;
-    void draw(VkCommandBuffer commandBuffer);
+    void update(float dt);
+    void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
-
-    void prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_);
+	Material* getMaterial() const { return material_.get(); }
+    void prepareBindless(UniformBufferArray& uniformBufferArray, TextureArray& textures);
 private:
     void initialize(const VulkanContext* context,
         const std::vector<Vertex>& inVertices,
@@ -41,12 +45,6 @@ private:
 
     const VulkanContext* context_;
 public:
-	std::shared_ptr<Texture> diffuseTexture_;
-	std::shared_ptr<Texture> specularTexture_;
-	std::shared_ptr<Texture> normalTexture_;
-	std::shared_ptr<Texture> ambientTexture_;
-	std::shared_ptr<Texture> emissiveTexture_;
-
     std::unique_ptr<Material> material_;
 };
 

@@ -8,12 +8,15 @@
 class Texture;
 class VulkanContext;
 class UniformBuffer;
+class TextureArray;
+class UniformBufferArray;
 
 struct MaterialUBO {
-    alignas(4) int useNormalTex;
-    alignas(4) int useSpecularTex;
-    alignas(4) int useAmbientTex;
-    alignas(4) int useEmissiveTex;
+    alignas(16) int diffuseTexIndex = -1;
+    int normalTexIndex = -1;
+    int specularTexIndex = -1;
+    int ambientTexIndex = -1;
+    int emissiveTexIndex = -1;
 };
 
 class Material {
@@ -27,16 +30,22 @@ public:
         std::shared_ptr<Texture> emissive);
     ~Material();
 
-    // TODO. 추후 제거 예정, 임시 테스트용
-    void prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_);
+    void prepareBindless(UniformBufferArray& uniformBufferArray, TextureArray& textures);
+
+	int getMaterialIndex() const { return materialIndex_; }
 private:
     void createUniformBuffer();
 
     const VulkanContext* context_;
-    std::vector<std::shared_ptr<Texture>> textures_;
+    std::shared_ptr<Texture> diffuseTexture_;
+    std::shared_ptr<Texture> specularTexture_;
+    std::shared_ptr<Texture> normalTexture_;
+    std::shared_ptr<Texture> ambientTexture_;
+    std::shared_ptr<Texture> emissiveTexture_;
     std::shared_ptr<Texture> defaultTexture_;
 
-    // Set 1: UBO
     MaterialUBO           materialUBO_;
     std::unique_ptr<UniformBuffer>       materialUB_;
+
+    int materialIndex_ = 0;
 };

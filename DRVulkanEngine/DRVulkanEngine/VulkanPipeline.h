@@ -14,6 +14,7 @@ class VulkanSwapChain;
 class ShaderManager;
 class Shader;
 class DescriptorPool;
+class DescriptorSet;
 
 class VulkanPipeline {
 public:
@@ -43,11 +44,11 @@ public:
 
     // Getter 메서드들
     VkPipeline getGraphicsPipeline() const { return graphicsPipeline; }
-    VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+    VkPipelineLayout getPipelineLayout() const { return pipelineLayout_; }
     const std::map<uint32_t, std::map<uint32_t, LayoutBindingInfo>>& GetDescriptorSetLayoutBindingMap() { return descriptorSetLayoutBindingMap_; };
 
     bool isValid() const { return graphicsPipeline != VK_NULL_HANDLE; }
-
+    void setDescriptorSets(const std::vector<DescriptorSet>& inDescriptorSet);
 private:
     void createGraphicsPipeline(const std::vector<Shader*> shaders);
     void createPipelineLayout(const std::vector<Shader*> shaders);
@@ -66,7 +67,7 @@ private:
     VkPipelineColorBlendStateCreateInfo createColorBlendState(VkPipelineColorBlendAttachmentState& colorBlendAttachment);
     VkPipelineRenderingCreateInfo createDynamicRenderingInfo(VkFormat& colorFormat);
 private:
-    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
     VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 
     const VulkanContext* context_;
@@ -75,5 +76,8 @@ private:
     DescriptorPool* descriptorPool_;
 
     PipelineConfig config_;
+    // Set Index -> Binding Indexes
     std::map<uint32_t, std::map<uint32_t, LayoutBindingInfo>> descriptorSetLayoutBindingMap_;
+
+    std::vector<DescriptorSet> descriptorSets_;
 };

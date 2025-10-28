@@ -35,7 +35,6 @@ void DescriptorSet::updateSet(const std::vector<Resource*>& resources)
         writeInfo.dstSet = descriptorSet_;
         writeInfo.dstBinding = index++;
         writeInfo.dstArrayElement = 0;
-        writeInfo.descriptorCount = 1;
         descriptorWrites.push_back(writeInfo);
     }
 

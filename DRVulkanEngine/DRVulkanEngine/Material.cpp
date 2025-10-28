@@ -1,10 +1,11 @@
 #include "Material.h"
-#include "VulkanContext.h" // VkDevice를 가져오기 위해 필요
-#include "Texture.h"       // 텍스처의 imageView, sampler에 접근하기 위해 필요
+#include "VulkanContext.h"
+#include "Texture.h"
 #include <array>
 #include <stdexcept>
 #include "UniformBuffer.h"
-
+#include "TextureArray.h"
+#include "UniformBufferArray.h"
 
 Material::Material(const VulkanContext* context,
     std::shared_ptr<Texture> diffuse,
@@ -14,11 +15,13 @@ Material::Material(const VulkanContext* context,
     std::shared_ptr<Texture> emissive)
 {
     context_ = context;
-    textures_ = { diffuse, specular, normal, ambient, emissive };
-    materialUBO_.useNormalTex = (normal != nullptr);
-    materialUBO_.useSpecularTex = (specular != nullptr);
-    materialUBO_.useAmbientTex = (ambient != nullptr);
-    materialUBO_.useEmissiveTex = (emissive != nullptr);
+
+    // 2. 텍스처 포인터 저장
+    diffuseTexture_ = diffuse;
+    specularTexture_ = specular;
+    normalTexture_ = normal;
+    ambientTexture_ = ambient;
+    emissiveTexture_ = emissive;
 
     createUniformBuffer();
 }
@@ -28,12 +31,30 @@ Material::~Material() {
 
 void Material::createUniformBuffer()
 {
+    static_assert(sizeof(MaterialUBO) % 16 == 0, "MaterialUBO size must be a multiple of 16 for std140 array compatibility!");
     materialUB_ = std::make_unique<UniformBuffer>(context_, sizeof(MaterialUBO));
-    materialUB_->update(&materialUBO_);
 }
 
 
-void Material::prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_)
+void Material::prepareBindless(UniformBufferArray& uniformBufferArray, TextureArray& textures)
 {
-	uniformBuffers_["MaterialUBO"] = materialUB_.get(); 
+    static std::shared_ptr<Texture> defaultTexture = nullptr;
+    if (defaultTexture == nullptr)
+    {
+        // 임시방편: 실제로는 Renderer 등 상위 클래스에서 미리 로드해야 합니다.
+        defaultTexture = std::make_shared<Texture>(context_, "../assets/images/minion.jpg");
+    }
+    if (diffuseTexture_)
+    {
+        materialUBO_.diffuseTexIndex = textures.AddTexture(diffuseTexture_.get());
+    }
+    
+    materialUBO_.diffuseTexIndex = diffuseTexture_ ? textures.AddTexture(diffuseTexture_.get()): textures.getDefualtTextureIndex();
+    materialUBO_.specularTexIndex = specularTexture_ ? textures.AddTexture( specularTexture_.get()): textures.getDefualtTextureIndex();
+    materialUBO_.normalTexIndex = normalTexture_ ? textures.AddTexture(normalTexture_.get()): textures.getDefualtTextureIndex();
+    materialUBO_.ambientTexIndex = ambientTexture_ ? textures.AddTexture(ambientTexture_.get()): textures.getDefualtTextureIndex();
+    materialUBO_.emissiveTexIndex = emissiveTexture_ ? textures.AddTexture(emissiveTexture_.get()): textures.getDefualtTextureIndex();
+
+    materialUB_->update(&materialUBO_);
+    materialIndex_ = uniformBufferArray.addUniformBuffer(materialUB_.get());
 }

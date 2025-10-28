@@ -11,7 +11,7 @@ public:
 	// Getter 메서드들
 	VkImageView getImageView() const { return textureView_; }
 	VkSampler getSampler() const { return textureSampler_; }
-
+	VkDescriptorImageInfo getImageInfo() const { return imageInfo_; }
 	virtual void populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const override;
 private:
 	void initialize(const std::string& filepath);

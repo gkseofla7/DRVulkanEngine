@@ -299,6 +299,7 @@ void Texture::createTextureSampler() {
 
 void Texture::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
 {
+    writeInfo.descriptorCount = 1;
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writeInfo.pImageInfo = &imageInfo_;

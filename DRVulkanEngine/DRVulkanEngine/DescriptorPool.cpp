@@ -14,17 +14,30 @@ void DescriptorLayoutCache::destroy() {
 }
 
 VkDescriptorSetLayout DescriptorLayoutCache::getLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings) {
-    // 1. 캐시에서 먼저 찾아봅니다.
     auto it = layoutCache_.find(bindings);
     if (it != layoutCache_.end()) {
-        return it->second; // 찾았으면 바로 반환
+        return it->second;
     }
 
-    // 2. 캐시에 없다면 새로 생성합니다.
+    std::vector<VkDescriptorBindingFlags> bindingFlags(bindings.size(), 0);
+
+    for (size_t i = 0; i < bindings.size(); ++i) {
+        if (bindings[i].descriptorCount > 1) {
+            bindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        }
+    }
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{};
+    flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    flagsInfo.bindingCount = static_cast<uint32_t>(bindingFlags.size());
+    flagsInfo.pBindingFlags = bindingFlags.data();
+
+
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
+    layoutInfo.pNext = &flagsInfo;
 
     VkDescriptorSetLayout newLayout;
     if (vkCreateDescriptorSetLayout(device_, &layoutInfo, nullptr, &newLayout) != VK_SUCCESS) {

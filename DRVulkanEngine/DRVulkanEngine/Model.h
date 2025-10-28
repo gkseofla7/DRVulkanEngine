@@ -3,9 +3,19 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <memory>
 #include "Mesh.h"
+#include "Animation.h"
+#include "Animator.h"
 class VulkanContext;
 class UniformBuffer;
+class TextureArray;
+class UniformBufferArray;
+class Resource; 
+#define MAX_BONES 100 
+struct UniformBufferBone {
+    glm::mat4 finalBoneMatrix[MAX_BONES];
+};
 
 struct UniformBufferObject {
     glm::mat4 world;
@@ -16,28 +26,36 @@ struct UniformBufferObject {
 class Model
 {
 public:
-    // 생성자: Vulkan Context와 정점/인덱스 데이터를 받습니다.
     Model(const VulkanContext* context, const std::string& filedir, const std::string& filename);
     ~Model();
 
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
-
-    // 2. 이동 생성자와 이동 대입 연산자는 컴파일러가 자동으로 생성하도록 하거나,
-    //    필요하다면 직접 구현할 수 있습니다. (기본으로 둬도 보통 괜찮습니다)
     Model(Model&& other) noexcept = default;
     Model& operator=(Model&& other) noexcept = default;
 
-    void prepareBindless(std::map<std::string, UniformBuffer*>& uniformBuffers_, std::map<std::string, Texture*>& textures_);
+    void prepareBindless(UniformBufferArray& modelUbArray, UniformBufferArray& materialUbArray, UniformBufferArray& boneUbArray, TextureArray& textures);
 	void updateUniformBuffer(const glm::mat4& modelMatrix, const glm::mat4& viewMatrix, const glm::mat4& projMatrix);
 
     void addMesh(Mesh&& mesh);
-    void draw(VkCommandBuffer commandBuffer);
+
+
+    void update(float deltaTime);
+    void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
 private:
     const VulkanContext* context_;
     std::vector<Mesh> meshes_;
 
 	std::unique_ptr<class UniformBuffer> modelUB_;
+
+	int modelUbIndex_ = -1;
+	int boneUbIndex_ = -1;
+
+    std::unique_ptr<Animator> animator_;
+	std::vector<Animation> animations_;
+
+    std::unique_ptr<class UniformBuffer> boneUB_;
+
 };
 

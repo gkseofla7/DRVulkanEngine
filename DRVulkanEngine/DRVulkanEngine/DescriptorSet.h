@@ -4,8 +4,8 @@
 #include <vector>
 
 class VulkanContext;
-struct Resource;
-struct DescriptorPool;
+class Resource;
+class DescriptorPool;
 
 class DescriptorSet
 {
