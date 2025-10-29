@@ -7,6 +7,7 @@ int UniformBufferArray::addUniformBuffer(UniformBuffer* inUbo)
 
 
     bufferInfos_.push_back(inUbo->getBufferInfo());
+    bBufferInfosDirty_ = true;
     return retIndex;
 }
 

@@ -7,6 +7,9 @@
 #include "Mesh.h"
 #include "Animation.h"
 #include "Animator.h"
+#include "ModelConfig.h"
+#include "GlobalData.h"
+
 class VulkanContext;
 class UniformBuffer;
 class TextureArray;
@@ -14,19 +17,19 @@ class UniformBufferArray;
 class Resource; 
 #define MAX_BONES 100 
 struct UniformBufferBone {
-    glm::mat4 finalBoneMatrix[MAX_BONES];
+    alignas(16) glm::mat4 finalBoneMatrix[MAX_BONES]; // 메모리 정렬 보장
 };
 
 struct UniformBufferObject {
-    glm::mat4 world;
-    glm::mat4 view;
-    glm::mat4 proj;
+    alignas(16) glm::mat4 world;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
 };
 
 class Model
 {
 public:
-    Model(const VulkanContext* context, const std::string& filedir, const std::string& filename);
+    Model(const VulkanContext* context, const ModelConfig& modelConfig);
     ~Model();
 
     Model(const Model& other) = delete;
@@ -39,10 +42,10 @@ public:
 
     void addMesh(Mesh&& mesh);
 
-
     void update(float deltaTime);
-    void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void draw(VkCommandBuffer commandBuffer);
 
+    void getPushConstantData(PushConstantData& outPushData);
 private:
     const VulkanContext* context_;
     std::vector<Mesh> meshes_;
@@ -57,5 +60,17 @@ private:
 
     std::unique_ptr<class UniformBuffer> boneUB_;
 
+    bool boneDataDirty_ = true;
+    std::vector<glm::mat4> cachedBoneMatrices_;
+    uint32_t framesSinceLastBoneUpdate_ = 0;
+    
+    static constexpr uint32_t BONE_UPDATE_FREQUENCY = 1;
+    static constexpr float MATRIX_COMPARISON_THRESHOLD = 0.00001f;
+    
+    mutable UniformBufferBone ubBoneBuffer_; // 스택 할당 방지를 위한 재사용 버퍼
+    
+    inline bool isMatrixChanged(const glm::mat4& a, const glm::mat4& b) const;
+
+    ModelConfig modelConfig_;
 };
 

@@ -14,4 +14,5 @@ private:
     std::vector<UniformBuffer*> uniformBuffers_;
 
     std::vector<VkDescriptorBufferInfo> bufferInfos_;
+
 };

@@ -30,6 +30,8 @@ class Model;
 
 
 struct UniformBufferScene {
+    alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat4 view;
     alignas(16) glm::vec3 lightPos;
     alignas(16) glm::vec3 viewPos;
 };
@@ -56,11 +58,14 @@ private:
 
     void loadAssets();
 
+    static void staticMouseCallback(GLFWwindow* window, double xposIn, double yposIn);
+    void mousecallback(GLFWwindow* window, double xposIn, double yposIn);
 private:
     GLFWwindow* window;
     VulkanContext context_;
     VulkanSwapChain swapChain;
     VulkanPipeline pipeline_;
+	VulkanPipeline skyboxPipeline_;
 
     ShaderManager shaderManager_;
 
@@ -79,11 +84,14 @@ private:
     std::vector<DescriptorSet> commonDescriptorSet_;
 
     std::vector<Model> models_;
+	std::unique_ptr<Model> skyboxModel_;
 
 	//std::map<std::string, UniformBuffer*> uniformBuffers_;
 	//std::map<std::string, Texture*> textures_;
 
     std::map<std::string, Resource*> resources_;
+
+    std::unique_ptr<class CubemapTexture> envCubemapTexture_;
 
     std::unique_ptr<class UniformBuffer> sceneUB_;
     TextureArray textureArray_;
@@ -92,4 +100,9 @@ private:
     UniformBufferArray boneUbArray_;
 
     std::unique_ptr<Texture> defaultTexture_;
+
+    float lastFrame;
+    float lastX = 800.0f / 2.0;
+    float lastY = 600.0f / 2.0;
+    bool firstMouse = true;
 };

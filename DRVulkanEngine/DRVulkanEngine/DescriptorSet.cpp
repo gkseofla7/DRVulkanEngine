@@ -8,7 +8,7 @@
 void DescriptorSet::initialize(VulkanContext* inContext, DescriptorPool* inDescriptorPool, VkDescriptorSetLayout inDescriptorSetLayout, const std::vector<Resource*>& inResources)
 {
     context_ = inContext;
-
+	resources_ = inResources;
     // 1. 관리되는 풀(Pool)로부터 디스크립터 셋을 할당받습니다.
     //    VulkanContext가 DescriptorPoolManager를 가지고 있다고 가정합니다.
     bool allocated = inDescriptorPool->allocateDescriptorSet(inDescriptorSetLayout, descriptorSet_);
@@ -19,6 +19,24 @@ void DescriptorSet::initialize(VulkanContext* inContext, DescriptorPool* inDescr
     // 2. 할당받은 디스크립터 셋에 실제 리소스들을 연결(업데이트)합니다.
     updateSet(inResources);
 }
+
+void DescriptorSet::updateIfDirty()
+{
+    bool bNeedsUpdate = false;
+    for (const auto& resource : resources_)
+    {
+        if (resource->IsBufferInfosDirty())
+        {
+            bNeedsUpdate = true;
+            break;
+        }
+    }
+    if (bNeedsUpdate)
+    {
+        updateSet(resources_);
+    }
+}
+
 
 // User의 createDescriptorSets() 요청을 이 함수로 구현
 void DescriptorSet::updateSet(const std::vector<Resource*>& resources)
@@ -36,6 +54,8 @@ void DescriptorSet::updateSet(const std::vector<Resource*>& resources)
         writeInfo.dstBinding = index++;
         writeInfo.dstArrayElement = 0;
         descriptorWrites.push_back(writeInfo);
+
+        resource->ClearBufferInfosDirty();
     }
 
     // 준비된 정보들을 바탕으로 디스크립터 셋 업데이트를 한번에 실행

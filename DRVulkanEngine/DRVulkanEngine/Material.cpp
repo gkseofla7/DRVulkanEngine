@@ -49,11 +49,11 @@ void Material::prepareBindless(UniformBufferArray& uniformBufferArray, TextureAr
         materialUBO_.diffuseTexIndex = textures.AddTexture(diffuseTexture_.get());
     }
     
-    materialUBO_.diffuseTexIndex = diffuseTexture_ ? textures.AddTexture(diffuseTexture_.get()): textures.getDefualtTextureIndex();
-    materialUBO_.specularTexIndex = specularTexture_ ? textures.AddTexture( specularTexture_.get()): textures.getDefualtTextureIndex();
-    materialUBO_.normalTexIndex = normalTexture_ ? textures.AddTexture(normalTexture_.get()): textures.getDefualtTextureIndex();
-    materialUBO_.ambientTexIndex = ambientTexture_ ? textures.AddTexture(ambientTexture_.get()): textures.getDefualtTextureIndex();
-    materialUBO_.emissiveTexIndex = emissiveTexture_ ? textures.AddTexture(emissiveTexture_.get()): textures.getDefualtTextureIndex();
+    materialUBO_.diffuseTexIndex = diffuseTexture_ ? textures.AddTexture(diffuseTexture_.get()):-1;
+    materialUBO_.specularTexIndex = specularTexture_ ? textures.AddTexture( specularTexture_.get()): -1;
+    materialUBO_.normalTexIndex = normalTexture_ ? textures.AddTexture(normalTexture_.get()): -1;
+    materialUBO_.ambientTexIndex = ambientTexture_ ? textures.AddTexture(ambientTexture_.get()): -1;
+    materialUBO_.emissiveTexIndex = emissiveTexture_ ? textures.AddTexture(emissiveTexture_.get()): -1;
 
     materialUB_->update(&materialUBO_);
     materialIndex_ = uniformBufferArray.addUniformBuffer(materialUB_.get());

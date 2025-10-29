@@ -11,6 +11,7 @@ int TextureArray::AddTexture(Texture* inTex)
 	int retIndex = textures_.size();
 	textures_.push_back(inTex);
 	imageInfos_.push_back(inTex->getImageInfo());
+	bBufferInfosDirty_ = true;
 	return retIndex;
 }
 

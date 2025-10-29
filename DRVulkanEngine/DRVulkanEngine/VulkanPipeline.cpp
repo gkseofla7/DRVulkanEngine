@@ -92,7 +92,7 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilInfo.depthTestEnable = VK_TRUE;
     depthStencilInfo.depthWriteEnable = VK_TRUE;
-    depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencilInfo.depthCompareOp = config_.depthCompareOp;
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.stencilTestEnable = VK_FALSE;
     
@@ -298,7 +298,7 @@ VkPipelineRasterizationStateCreateInfo VulkanPipeline::createRasterizationState(
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = config_.cullMode;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 

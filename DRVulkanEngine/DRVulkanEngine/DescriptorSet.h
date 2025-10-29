@@ -16,6 +16,7 @@ public:
     // Vulkan 핸들을 가져오는 Getter
     VkDescriptorSet getHandle() const { return descriptorSet_; }
 
+    void updateIfDirty();
 private:
     // 할당된 디스크립터 셋에 실제 리소스 정보를 기록(업데이트)합니다.
     void updateSet(const std::vector<Resource*>& resources);
@@ -23,4 +24,6 @@ private:
 private:
     VulkanContext* context_ = nullptr;
     VkDescriptorSet descriptorSet_ = VK_NULL_HANDLE;
+
+    std::vector<Resource*> resources_;
 };

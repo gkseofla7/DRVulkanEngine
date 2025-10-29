@@ -34,7 +34,7 @@ void Mesh::update(float dt)
 
 }
 
-void Mesh::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
+void Mesh::draw(VkCommandBuffer commandBuffer)
 {
     VkBuffer vertexBuffers[] = { vertexBuffer_ };
     VkDeviceSize offsets[] = { 0 };
@@ -60,13 +60,17 @@ void Mesh::initialize(const VulkanContext* context,
     createVertexBuffer();
     createIndexBuffer();
 
-    material_ = std::make_unique<Material>(context,
-        inDiffuse,
-        inSpecular,
-        inNormal,
-        inAmbient,
-        inEmissive);
+    if(inDiffuse.get() != nullptr)
+    {
+        material_ = std::make_unique<Material>(context,
+            inDiffuse,
+            inSpecular,
+            inNormal,
+            inAmbient,
+            inEmissive);
+	}
 }
+
 void Mesh::intializeMaterial()
 {
 

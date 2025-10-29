@@ -17,20 +17,24 @@ public:
     Mesh();
     ~Mesh();
     Mesh(Mesh&& other) noexcept;
+
+    void initialize(const VulkanContext* context,
+        const std::vector<Vertex>& inVertices,
+        const std::vector<uint32_t>& inIndices,
+        std::shared_ptr<Texture> inDiffuse = nullptr,
+        std::shared_ptr<Texture> inSpecular = nullptr,
+        std::shared_ptr<Texture> inNormal = nullptr,
+        std::shared_ptr<Texture> inAmbient = nullptr,
+        std::shared_ptr<Texture> inEmissive = nullptr);
+
     void update(float dt);
-    void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void draw(VkCommandBuffer commandBuffer);
 
 	Material* getMaterial() const { return material_.get(); }
     void prepareBindless(UniformBufferArray& uniformBufferArray, TextureArray& textures);
 private:
-    void initialize(const VulkanContext* context,
-        const std::vector<Vertex>& inVertices,
-        const std::vector<uint32_t>& inIndices,
-        std::shared_ptr<Texture> inDiffuse,
-        std::shared_ptr<Texture> inSpecular,
-        std::shared_ptr<Texture> inNormal,
-        std::shared_ptr<Texture> inAmbient,
-        std::shared_ptr<Texture> inEmissive);
+
+
     void intializeMaterial();
     void createVertexBuffer();
     void createIndexBuffer();

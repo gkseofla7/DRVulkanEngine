@@ -14,12 +14,15 @@ layout(location = 0) out vec4 outColor;
 
 // --- PushConstant ---
 layout(push_constant) uniform PushConstants {
-    int modelUBIndex;  // offset = 0
-    int materialIndex; // offset = 4
+    int modelUBIndex;
+    int materialIndex;
+    int boneUbIndex;
 } pc;
 // --- DescriptorSet ---
 // Set 0: æ¿ µ•¿Ã≈Õ
 layout(set = 0, binding = 1) uniform SceneUBO {
+    mat4 proj;
+    mat4 view;
     vec3 lightPos;
     vec3 viewPos;
 } scene;

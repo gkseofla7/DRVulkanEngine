@@ -50,9 +50,6 @@ void Animation::ReadHierarchyData(AssimpNodeData& dest, const aiNode* src) {
         mat.a2, mat.b2, mat.c2, mat.d2,
         mat.a3, mat.b3, mat.c3, mat.d3,
         mat.a4, mat.b4, mat.c4, mat.d4);
-    std::cout << "Node: " << dest.name << std::endl;
-    std::cout << glm::to_string(dest.transformation) << std::endl;
-    std::cout << "--------------------" << std::endl;
     for (unsigned int i = 0; i < src->mNumChildren; i++) {
         AssimpNodeData newData;
         ReadHierarchyData(newData, src->mChildren[i]);
