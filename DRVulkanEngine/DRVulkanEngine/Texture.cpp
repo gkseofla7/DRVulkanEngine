@@ -3,13 +3,43 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <stdexcept>
-
+bool hasStencilComponent(VkFormat format) {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
 Texture::Texture(const VulkanContext* context, const std::string& filepath) {
     // Resource 클래스의 context 멤버 변수 등을 초기화
     this->context = context;
-
     // 파일 경로를 받아 초기화 함수 호출
     initialize(filepath);
+}
+
+Texture::Texture(const VulkanContext* context, uint32_t width, uint32_t height,
+    VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspectFlags)
+{
+    this->context = context;
+    this->format_ = format;
+    // 1. VkImage 및 VkDeviceMemory 생성
+    // RenderTarget은 DEVICE_LOCAL 메모리에 생성하는 것이 가장 효율적입니다.
+    createImage(width, height, format, VK_IMAGE_TILING_OPTIMAL, usage,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_, textureMemory_);
+
+    // 2. VkImageView 생성
+    textureView_ = createImageView(texture_, format, aspectFlags);
+    if (aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT) {
+        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        currentLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    }
+    else if (aspectFlags == VK_IMAGE_ASPECT_DEPTH_BIT) {
+        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        currentLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+    createTextureSampler();
+
+    // 디스크립터 정보 업데이트 (필요 시)
+    //imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // 또는 사용 목적에 맞는 레이아웃
+    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // 또는 사용 목적에 맞는 레이아웃
+    imageInfo_.imageView = textureView_;
+    imageInfo_.sampler = textureSampler_;
 }
 
 Texture::~Texture() {
@@ -50,6 +80,8 @@ void Texture::initialize(const std::string& filepath) {
     // 원본 픽셀 데이터는 이제 CPU 메모리에서 해제해도 됩니다.
     stbi_image_free(pixels);
 
+    format_ = VK_FORMAT_R8G8B8A8_SRGB;
+    currentLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
 
     // 이미지 생성
     createImage(texWidth, texHeight,
@@ -69,6 +101,8 @@ void Texture::initialize(const std::string& filepath) {
 
     // (3) TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (셰이더가 읽기 좋은 레이아웃으로 변경)
     transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    currentLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // 복사가 끝났으므로 Staging Buffer는 파괴합니다.
     vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
@@ -127,7 +161,6 @@ void Texture::createImage(uint32_t width, uint32_t height, VkFormat format, VkIm
     vkBindImageMemory(context->getDevice(), image, imageMemory, 0);
 }
 
-
 void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
     // 1. 일회성 작업을 위한 커맨드 버퍼를 시작합니다.
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -135,22 +168,29 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     // 2. 이미지 메모리 장벽(Image Memory Barrier)을 설정합니다.
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout; // 이전 레이아웃
-    barrier.newLayout = newLayout; // 새로운 레이아웃
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        if (hasStencilComponent(format)) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
-    // 3. 이전/이후 레이아웃에 따라 어떤 파이프라인 단계에서
-    //    장벽이 발생해야 하는지, 접근 권한은 어떻게 설정할지 결정합니다.
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -165,11 +205,24 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
     else {
         throw std::invalid_argument("unsupported layout transition!");
     }
 
-    // 4. 커맨드 버퍼에 파이프라인 장벽 명령을 기록합니다.
     vkCmdPipelineBarrier(
         commandBuffer,
         sourceStage, destinationStage,
@@ -179,7 +232,6 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
         1, &barrier
     );
 
-    // 5. 커맨드 버퍼 기록을 마치고 GPU에 제출하여 실행합니다.
     endSingleTimeCommands(commandBuffer);
 }
 
@@ -219,7 +271,7 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
 
 
 
-VkImageView Texture::createImageView(VkImage image, VkFormat format) {
+VkImageView Texture::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
     // 1. 이미지 뷰 생성 정보(CreateInfo)를 정의합니다.
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -237,7 +289,7 @@ VkImageView Texture::createImageView(VkImage image, VkFormat format) {
     viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
     // 4. 이미지의 어떤 부분을 뷰가 다룰지 정의합니다. (Subresource Range)
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // 컬러 데이터를 다룸
+    viewInfo.subresourceRange.aspectMask = aspectFlags; // 컬러 데이터를 다룸
     viewInfo.subresourceRange.baseMipLevel = 0; // 밉맵 레벨 0부터
     viewInfo.subresourceRange.levelCount = 1;   // 1개의 밉맵 레벨을 다룸
     viewInfo.subresourceRange.baseArrayLayer = 0; // 배열의 첫 번째 레이어부터
@@ -299,8 +351,101 @@ void Texture::createTextureSampler() {
 
 void Texture::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
 {
-    writeInfo.descriptorCount = 1;
+    imageInfo_.imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeInfo.descriptorCount = 1;
     writeInfo.pImageInfo = &imageInfo_;
 }
+
+void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout newLayout)
+{
+    // 현재 레이아웃과 목표 레이아웃이 같으면 전환할 필요가 없습니다.
+    if (currentLayout_ == newLayout) {
+        return;
+    }
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = currentLayout_; // 현재 저장된 레이아웃을 사용
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = texture_;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    // 이미지 포맷에 따라 Aspect Mask를 결정합니다.
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        // 스텐실 포맷인지 확인하는 헬퍼 함수가 있다고 가정
+        if (hasStencilComponent(format_)) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    // 전환 유형에 따라 동기화 파라미터를 결정합니다.
+    // 이 if-else 체인은 필요한 만큼 확장될 수 있습니다.
+    if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = 0; // Present 하기 전에는 특별한 접근 권한이 필요 없음
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    else {
+        throw std::invalid_argument("Unsupported layout transition provided!");
+    }
+
+    // 커맨드 버퍼에 파이프라인 배리어 명령을 기록합니다.
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        sourceStage,
+        destinationStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    currentLayout_ = newLayout;
+}
+

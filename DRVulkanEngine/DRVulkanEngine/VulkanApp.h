@@ -20,20 +20,22 @@
 #include "DescriptorPool.h"
 #include "UniformBuffer.h"
 #include "UniformBufferArray.h"
-
+#include "RenderTarget.h"
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 class Camera;
 class Texture;
 class Model;
-// 삼각형 정점 데이터 구조체
-
 
 struct UniformBufferScene {
     alignas(16) glm::mat4 proj;
     alignas(16) glm::mat4 view;
     alignas(16) glm::vec3 lightPos;
     alignas(16) glm::vec3 viewPos;
+    alignas(4) float exposure;        // HDR 노출값
+    alignas(4) float gamma;           // 감마 보정값
+    alignas(4) float maxWhite;        // 최대 흰색값 (Reinhard Extended용)
+    alignas(4) int tonemapOperator;   // 톤맵핑 연산자 선택 (0=ACES, 1=Reinhard, 2=ReinhardExt, 3=Exposure)
 };
 
 class VulkanApp {
@@ -55,17 +57,23 @@ private:
     void drawFrame();
 
     void updateUniformBuffer(uint32_t currentImage);
+    void handleHDRInput(); // HDR 관련 키보드 입력 처리
 
     void loadAssets();
 
     static void staticMouseCallback(GLFWwindow* window, double xposIn, double yposIn);
     void mousecallback(GLFWwindow* window, double xposIn, double yposIn);
+
 private:
     GLFWwindow* window;
     VulkanContext context_;
-    VulkanSwapChain swapChain;
-    VulkanPipeline pipeline_;
+    VulkanSwapChain swapChain_;
+    VulkanPipeline defaultPipeline_;
 	VulkanPipeline skyboxPipeline_;
+	VulkanPipeline tonemappingPipeline_;
+
+
+    RenderTarget sceneRenderTarget_;
 
     ShaderManager shaderManager_;
 
@@ -77,7 +85,6 @@ private:
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
     std::unique_ptr<Camera> camera_;
 
-
     VkDescriptorSetLayout descriptorSetLayout;
     DescriptorPool descriptorPool_;
     std::vector<DescriptorSet> perFrameDescriptorSets_;
@@ -86,23 +93,24 @@ private:
     std::vector<Model> models_;
 	std::unique_ptr<Model> skyboxModel_;
 
-	//std::map<std::string, UniformBuffer*> uniformBuffers_;
-	//std::map<std::string, Texture*> textures_;
-
     std::map<std::string, Resource*> resources_;
-
     std::unique_ptr<class CubemapTexture> envCubemapTexture_;
-
     std::unique_ptr<class UniformBuffer> sceneUB_;
     TextureArray textureArray_;
     UniformBufferArray materialUbArray_;
     UniformBufferArray modelUbArray_;
     UniformBufferArray boneUbArray_;
-
     std::unique_ptr<Texture> defaultTexture_;
 
+    // 카메라 관련
     float lastFrame;
     float lastX = 800.0f / 2.0;
     float lastY = 600.0f / 2.0;
     bool firstMouse = true;
+
+    // HDR 톤맵핑 관련 변수들
+    float hdrExposure = 1.0f;     // 기본 노출값
+    float hdrGamma = 2.2f;        // 기본 감마값
+    float hdrMaxWhite = 4.0f;     // 최대 흰색값
+    int tonemapMode = 0;          // 0=ACES, 1=Reinhard, 2=ReinhardExt, 3=Exposure
 };

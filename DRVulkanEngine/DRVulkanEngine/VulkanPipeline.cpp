@@ -73,8 +73,21 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
 
     }
 
-    // Pipeline 구성 요소들 생성
-    auto vertexInputInfo = createVertexInputState();
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // 바깥에 선언
+    if (config_.useVertexInput) {
+        // 기존 로직: 3D 모델용 파이프라인은 정점 입력을 설정합니다.
+        vertexInputInfo = createVertexInputState();
+    }
+    else {
+        // 톤 매핑용 파이프라인은 빈 정점 입력 상태를 설정합니다.
+        // "버텍스 버퍼에서 아무것도 읽지 않겠다"는 의미입니다.
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr;
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    }
     auto inputAssembly = createInputAssemblyState();
     
     VkViewport viewport{};
@@ -100,8 +113,7 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     createPipelineLayout(shaders);
 
     // Dynamic Rendering을 위한 Pipeline Rendering Create Info
-    VkFormat colorFormat = swapChain_->getSwapChainImageFormat();
-    auto pipelineRenderingCreateInfo = createDynamicRenderingInfo(colorFormat);
+    auto pipelineRenderingCreateInfo = createDynamicRenderingInfo();
 
     // Graphics Pipeline 생성
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -316,7 +328,14 @@ VkPipelineMultisampleStateCreateInfo VulkanPipeline::createMultisampleState() {
 
 VkPipelineColorBlendStateCreateInfo VulkanPipeline::createColorBlendState(VkPipelineColorBlendAttachmentState& colorBlendAttachment) {
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.blendEnable = config_.blendEnable;
+    colorBlendAttachment.srcColorBlendFactor = config_.srcColorBlendFactor;
+    colorBlendAttachment.dstColorBlendFactor = config_.dstColorBlendFactor;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // 일반적인 알파 블렌딩 설정
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -332,14 +351,14 @@ VkPipelineColorBlendStateCreateInfo VulkanPipeline::createColorBlendState(VkPipe
     return colorBlending;
 }
 
-VkPipelineRenderingCreateInfo VulkanPipeline::createDynamicRenderingInfo(VkFormat& colorFormat) {
+VkPipelineRenderingCreateInfo VulkanPipeline::createDynamicRenderingInfo( ) {
     VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo{};
     pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     pipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    pipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
+    pipelineRenderingCreateInfo.pColorAttachmentFormats = &config_.colorAttachmentFormat;
     
     // Depth Buffer 포맷 설정
-    pipelineRenderingCreateInfo.depthAttachmentFormat = swapChain_->getDepthFormat();
+    pipelineRenderingCreateInfo.depthAttachmentFormat = config_.depthAttachmentFormat;
     pipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // 스텐실은 사용 안 함
 
     return pipelineRenderingCreateInfo;

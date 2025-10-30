@@ -65,7 +65,7 @@ private:
     VkPipelineRasterizationStateCreateInfo createRasterizationState();
     VkPipelineMultisampleStateCreateInfo createMultisampleState();
     VkPipelineColorBlendStateCreateInfo createColorBlendState(VkPipelineColorBlendAttachmentState& colorBlendAttachment);
-    VkPipelineRenderingCreateInfo createDynamicRenderingInfo(VkFormat& colorFormat);
+    VkPipelineRenderingCreateInfo createDynamicRenderingInfo();
 private:
     VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
     VkPipeline graphicsPipeline = VK_NULL_HANDLE;

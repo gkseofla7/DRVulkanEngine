@@ -141,6 +141,7 @@
     <ClCompile Include="PipelineManager.cpp" />
     <ClCompile Include="PrimitiveFactory.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="RenderTarget.cpp" />
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
@@ -156,12 +157,15 @@
     <ClCompile Include="VulkanContext.cpp" />
     <ClCompile Include="VulkanPipeline.cpp" />
     <ClCompile Include="VulkanSwapChain.cpp" />
+    <ClCompile Include="VulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\fullscreen.vert" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
+    <None Include="shaders\tonemapping.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Animation.h" />
@@ -181,6 +185,7 @@
     <ClInclude Include="PipelineManager.h" />
     <ClInclude Include="PrimitiveFactory.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderTarget.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="ShaderManager.h" />
@@ -193,6 +198,7 @@
     <ClInclude Include="VulkanContext.h" />
     <ClInclude Include="VulkanPipeline.h" />
     <ClInclude Include="VulkanSwapChain.h" />
+    <ClInclude Include="VulkanUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

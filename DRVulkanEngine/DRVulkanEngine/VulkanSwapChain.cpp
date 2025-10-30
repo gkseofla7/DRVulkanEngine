@@ -221,7 +221,10 @@ VkRenderingAttachmentInfo VulkanSwapChain::getColorAttachmentInfo(uint32_t image
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    
+    // HDR 배경색 - 더 어두운 색상으로 HDR 효과를 더 잘 보이게 함
+    colorAttachment.clearValue.color = {{0.01f, 0.01f, 0.02f, 1.0f}}; // 어두운 블루 톤
+    
     return colorAttachment;
 }
 
@@ -366,11 +369,54 @@ SwapChainSupportDetails VulkanSwapChain::querySwapChainSupport(VkPhysicalDevice 
 }
 
 VkSurfaceFormatKHR VulkanSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+    // HDR10 지원을 위한 포맷 우선순위
+    
+    // 1. HDR10 - Rec. 2020 color space with PQ transfer function
     for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+            availableFormat.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT) {
+            std::cout << "HDR10 format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32 with HDR10_ST2084" << std::endl;
             return availableFormat;
         }
     }
+    
+    // 2. Extended sRGB for wider color gamut
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+            std::cout << "Extended sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
+            return availableFormat;
+        }
+    }
+    
+    // 3. 16-bit float format for HDR
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == VK_FORMAT_R16G16B16A16_SFLOAT && 
+            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+            std::cout << "HDR float16 format selected: VK_FORMAT_R16G16B16A16_SFLOAT" << std::endl;
+            return availableFormat;
+        }
+    }
+    
+    // 4. 10-bit format with standard sRGB (wider color gamut)
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            std::cout << "10-bit sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
+            return availableFormat;
+        }
+    }
+    
+    // 5. Fallback to standard sRGB
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && 
+            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            std::cout << "Standard sRGB format selected: VK_FORMAT_B8G8R8A8_SRGB" << std::endl;
+            return availableFormat;
+        }
+    }
+    
+    std::cout << "Default format selected: " << availableFormats[0].format << std::endl;
     return availableFormats[0];
 }
 

@@ -52,7 +52,6 @@ public:
     
     // SwapChain 재생성 (윈도우 크기 변경 등)
     void recreate();
-
     // Getter 메서드들
     VkSwapchainKHR getSwapChain() const { return swapChain; }
     const std::vector<VkImage>& getSwapChainImages() const { return swapChainImages; }

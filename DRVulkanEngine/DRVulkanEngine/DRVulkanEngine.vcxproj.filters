@@ -99,6 +99,12 @@
     <ClCompile Include="PrimitiveFactory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RenderTarget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VulkanUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\skybox.vert">
@@ -111,6 +117,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="shaders\shader.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\fullscreen.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\tonemapping.frag">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
@@ -200,6 +212,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PrimitiveFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTarget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VulkanUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
