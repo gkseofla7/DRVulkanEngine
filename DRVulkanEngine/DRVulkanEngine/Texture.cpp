@@ -26,18 +26,23 @@ Texture::Texture(const VulkanContext* context, uint32_t width, uint32_t height,
     // 2. VkImageView 생성
     textureView_ = createImageView(texture_, format, aspectFlags);
     if (aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT) {
-        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        currentLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR);
+        // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+        currentLayout_ = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     }
     else if (aspectFlags == VK_IMAGE_ASPECT_DEPTH_BIT) {
-        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        currentLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR);
+        currentLayout_ = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     }
     createTextureSampler();
 
     // 디스크립터 정보 업데이트 (필요 시)
     //imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // 또는 사용 목적에 맞는 레이아웃
-    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // 또는 사용 목적에 맞는 레이아웃
+
+    // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
+    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR; // 또는 사용 목적에 맞는 레이아웃
     imageInfo_.imageView = textureView_;
     imageInfo_.sampler = textureSampler_;
 }
@@ -100,9 +105,11 @@ void Texture::initialize(const std::string& filepath) {
     copyBufferToImage(stagingBuffer, texture_, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
     // (3) TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (셰이더가 읽기 좋은 레이아웃으로 변경)
-    transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    currentLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
+    transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
+    // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
+    currentLayout_ = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
 
     // 복사가 끝났으므로 Staging Buffer는 파괴합니다.
     vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
@@ -113,8 +120,8 @@ void Texture::initialize(const std::string& filepath) {
     textureView_ = createImageView(texture_, VK_FORMAT_R8G8B8A8_SRGB);
 
     createTextureSampler();
-
-    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
+    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
     imageInfo_.imageView = textureView_;
     imageInfo_.sampler = textureSampler_;
 }
@@ -194,28 +201,47 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    // --- 추가: ATTACHMENT_OPTIMAL_KHR (통합 어태치먼트) ---
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+        barrier.srcAccessMask = 0;
+        // 컬러와 깊이/스텐실 모두에 대응하도록 마스크 조합
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        // 렌더링 시작 시점에 필요한 스테이지 지정
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    // --- 추가: READ_ONLY_OPTIMAL_KHR (통합 읽기 전용) ---
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    // --- 추가: Attachment -> Read Only (렌더링 후 샘플링 전환) ---
+    else if (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
@@ -407,6 +433,35 @@ void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout 
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    // --- 추가: ATTACHMENT_OPTIMAL_KHR (통합 어태치먼트) ---
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+        barrier.srcAccessMask = 0;
+        // 컬러와 깊이 모두 대응 가능하도록 마스크 조합
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    // --- 추가: READ_ONLY_OPTIMAL_KHR (통합 읽기 전용) ---
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    // --- 추가: Attachment -> Read Only 전환 (렌더링 후 샘플링용) ---
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    // --- 추가: Attachment -> Present (다이내믹 렌더링 후 출력) ---
+    else if (currentLayout_ == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
     else if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -421,7 +476,7 @@ void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout 
     }
     else if (currentLayout_ == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
         barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = 0; // Present 하기 전에는 특별한 접근 권한이 필요 없음
+        barrier.dstAccessMask = 0;
         sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     }

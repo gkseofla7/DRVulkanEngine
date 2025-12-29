@@ -1,7 +1,11 @@
 #version 450
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_EXT_buffer_reference : enable
 
 #define MAX_OBJECTS 128
 #define MAX_BONES 100 // 최대 뼈 개수 (Animator와 일치시켜야 함)
+
+layout(constant_id = 0) const bool USE_BDA_BUFFER = false; 
 
 // --- 입력(in) 변수 ---
 layout(location = 0) in vec3 inPosition;
@@ -20,23 +24,28 @@ layout(location = 3) out mat3 fragTBN;
 
 // --- 유니폼 및 푸시 상수 ---
 layout(push_constant) uniform PushConstants {
+    uint64_t boneAddress;
     int modelUBIndex;
     int materialIndex;
     int boneUbIndex;
 } pc;
 
-// 바인딩 0: MVP 행렬 UBO (기존과 동일)
 layout(std140, set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
 } ubo[MAX_OBJECTS];
 
-// ★★★ 바인딩 1: 뼈 행렬 UBO (새로 추가) ★★★
-// (UBO 크기 제한에 걸릴 것 같다면 'buffer' 키워드를 사용해 SSBO로 변경 가능)
+
+layout(buffer_reference, std430) readonly restrict buffer BonePtr {
+    mat4 finalBoneMatrix[];
+};
 layout(std140, set = 0, binding = 1) uniform BoneMatrices {
     mat4 finalBones[MAX_BONES];
 } boneData[MAX_OBJECTS];
+
+
+
 
 
 void main() {
@@ -57,7 +66,16 @@ void main() {
                 continue;
             }
             
-            mat4 boneMatrix = boneData[pc.boneUbIndex].finalBones[inBoneIDs[i]];
+            mat4 boneMatrix;
+            if(USE_BDA_BUFFER)
+            {
+                BonePtr bones = BonePtr(pc.boneAddress);
+                boneMatrix = bones.finalBoneMatrix[inBoneIDs[i]];
+            }
+            else
+            {
+                boneMatrix = boneData[pc.boneUbIndex].finalBones[inBoneIDs[i]];
+            }
             totalBoneTransform += boneMatrix * inWeights[i];
         }
     }

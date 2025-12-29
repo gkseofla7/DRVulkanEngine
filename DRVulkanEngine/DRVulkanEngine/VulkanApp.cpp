@@ -213,7 +213,8 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     VkImageMemoryBarrier imageBarrier{};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.image = swapChain_.getSwapChainImages()[imageIndex];
@@ -233,10 +234,10 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 	// 렌더링 패스 1: 장면 렌더링
     // ====================================================================
     {
-
+        // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
         sceneRenderTarget_.getColorTexture()->transitionLayout_Cmd(
             commandBuffer,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR);
 
         auto renderingInfo = sceneRenderTarget_.getRenderingInfo();
         //auto renderingInfo = swapChain_.getRenderingInfo(imageIndex);
@@ -266,9 +267,10 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 
         vkCmdEndRendering(commandBuffer);
     }
+    // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     sceneRenderTarget_.getColorTexture()->transitionLayout_Cmd(
         commandBuffer,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
 
     // ====================================================================
     // 렌더링 패스 2: 톤 매핑
@@ -295,7 +297,8 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 
 
     // 이미지 레이아웃 전환 (COLOR_ATTACHMENT_OPTIMAL -> PRESENT_SRC)
-    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     imageBarrier.dstAccessMask = 0;
@@ -404,7 +407,7 @@ void VulkanApp::update()
     // TODO. 시간차 생성을 위한 임시 코드, 제거 예정
     static int count = 2;
 	static float totalTime = 0.0f;
-	float checkTime[2] = { 3.0f, 6.0f };
+	float checkTime[2] = { 0.0f, 0.0f };
 	totalTime += dt;
     if (count > 0 && totalTime >= checkTime[2-count])
     {
@@ -413,7 +416,7 @@ void VulkanApp::update()
         modelConfig.type = ModelType::FromFile;
         modelConfig.modelDirectory = "../assets/models/mouseModel";
         modelConfig.modelFilename = "mouseModel.fbx";
-        modelConfig.animationFilenames.push_back("mouseModelAnim.fbx");
+        modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
         models_.push_back(Model(&context_, modelConfig));
         models_.back().prepareBindless(modelUbArray_, materialUbArray_, boneUbArray_, textureArray_);
     }
@@ -528,7 +531,7 @@ void VulkanApp::loadAssets() {
 	modelConfig.type = ModelType::FromFile;
 	modelConfig.modelDirectory = "../assets/models/mouseModel";
 	modelConfig.modelFilename = "mouseModel.fbx";
-    modelConfig.animationFilenames.push_back("mouseModelAnim.fbx");
+    modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
 	models_.push_back(Model(&context_, modelConfig));
 
     for(Model& model : models_)
@@ -545,7 +548,7 @@ void VulkanApp::loadAssets() {
     // HDR 환경맵 로드 - 더 큰 해상도로 개선
     envCubemapTexture_ = std::make_unique<CubemapTexture>(
         &context_,
-        "../assets/hdri/german_town_street_4k.hdr",
+        "../assets/hdri/bryanston_park_sunrise_4k.hdr",
         1024  // 더 높은 해상도로 변경 (512 -> 1024)
     );
 

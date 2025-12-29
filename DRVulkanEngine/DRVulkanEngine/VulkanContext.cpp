@@ -1,4 +1,5 @@
 #include "VulkanContext.h"
+#include "GlobalData.h"
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 #include <vector>
@@ -117,7 +118,7 @@ std::vector<const char*> VulkanContext::getRequiredExtensions() {
     if (enableValidationLayers) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
-
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     return extensions;
 }
 
@@ -176,7 +177,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
 }
 
 void VulkanContext::createInstance() {
-    // Validation Layer 지원 확인
     if (enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -187,12 +187,15 @@ void VulkanContext::createInstance() {
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "DRVulkanEngine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+
+    // API 버전을 1.3으로 설정 (최신 기능 대응)
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
+    // getRequiredExtensions()에서 반환된 확장 목록 사용
     auto extensions = getRequiredExtensions();
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
@@ -202,10 +205,10 @@ void VulkanContext::createInstance() {
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
 
-        // Instance 생성 중에도 Debug Messenger가 작동하도록 설정
         populateDebugMessengerCreateInfo(debugCreateInfo);
-        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
-    } else {
+        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+    }
+    else {
         createInfo.enabledLayerCount = 0;
         createInfo.pNext = nullptr;
     }
@@ -214,11 +217,10 @@ void VulkanContext::createInstance() {
         throw std::runtime_error("failed to create Vulkan instance!");
     }
 
-    std::cout << "Vulkan instance created successfully!" << std::endl;
-    
-    // Instance 생성 후 Debug Messenger 설정
+    std::cout << "Vulkan instance created successfully with Properties2 extension!" << std::endl;
     setupDebugMessenger();
 }
+
 
 void VulkanContext::createSurface(GLFWwindow* window) {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
@@ -257,12 +259,16 @@ void VulkanContext::pickPhysicalDevice() {
               << "." << VK_VERSION_MINOR(deviceProperties.apiVersion) 
               << "." << VK_VERSION_PATCH(deviceProperties.apiVersion) << std::endl;
 }
+
 void VulkanContext::createLogicalDevice() {
-    // 1. 필요한 큐(Graphics, Present) 패밀리 인덱스 찾기
+    // 1. 큐 패밀리 인덱스 찾기
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    std::set<uint32_t> uniqueQueueFamilies = {
+        indices.graphicsFamily.value(),
+        indices.presentFamily.value()
+    };
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -274,54 +280,95 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    // 2. 활성화할 GPU 기능들을 pNext 체인으로 구성
-    // 체인 3: 디스크립터 인덱싱 기능 (가장 마지막)
-    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
-    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    indexingFeatures.pNext = nullptr; // 체인의 끝
-    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE; // 부분적으로 바인딩된 디스크립터 허용
+    // 2. 현재 기기에서 지원하는 모든 확장 기능 목록 가져오기 (디버깅 및 체크용)
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
-    // 체인 2: Vulkan 1.3 기능 (디스크립터 인덱싱 기능을 연결)
+    auto isExtensionSupported = [&](const char* extensionName) {
+        for (const auto& ext : availableExtensions) {
+            if (strcmp(ext.extensionName, extensionName) == 0) return true;
+        }
+        return false;
+        };
+
+    // 3. 활성화할 디바이스 확장 목록 구성
+    std::vector<const char*> enabledExtensions;
+
+    // [필수] 스왑체인 기본 기능
+    enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+    // [필수/선택] HDR 컬러 스페이스 확장 (사용자님이 말씀하신 부분)
+    // RTX 3060은 지원해야 정상입니다. 만약 여기서 누락되면 하단에서 경고를 띄웁니다.
+    if (isExtensionSupported(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+        enabledExtensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+    }
+    else {
+        std::cerr << "CRITICAL: VK_EXT_swapchain_colorspace is NOT supported by this device!" << std::endl;
+        // 필요하다면 여기서 강제로 추가할 수도 있지만, 지원 안 하는 기기라면 vkCreateDevice에서 에러가 납니다.
+        // enabledExtensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME); 
+    }
+
+    // [선택] SPIR-V 셰이더 관련 확장
+    if (isExtensionSupported(VK_KHR_SHADER_RELAXED_EXTENDED_INSTRUCTION_EXTENSION_NAME)) {
+        enabledExtensions.push_back(VK_KHR_SHADER_RELAXED_EXTENDED_INSTRUCTION_EXTENSION_NAME);
+    }
+
+    // [선택] Nsight 디버깅용
+    if (isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)) {
+        enabledExtensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
+    }
+
+    // 4. 피처 체인(pNext Chain) 구성
+
+    // [체인 3] Vulkan 1.3 피처 (Synchronization2, Dynamic Rendering)
     VkPhysicalDeviceVulkan13Features vulkan13Features{};
     vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    vulkan13Features.pNext = &indexingFeatures; // 다음 체인으로 indexingFeatures 연결
     vulkan13Features.dynamicRendering = VK_TRUE;
+    vulkan13Features.synchronization2 = VK_TRUE; // Layout KHR 에러 해결 핵심
+    vulkan13Features.pNext = nullptr;
 
-    // 체인 1: 모든 기능 체인을 관리할 최상위 구조체 (Vulkan 1.3 기능을 연결)
+    // [체인 2] Vulkan 1.2 피처 (Descriptor Indexing, BDA)
+    VkPhysicalDeviceVulkan12Features vulkan12Features{};
+    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vulkan12Features.pNext = &vulkan13Features;
+    vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+    vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+#if USE_BDA_BUFFER
+    vulkan12Features.bufferDeviceAddress = VK_TRUE;
+#endif
+
+    // [체인 1] 최상위 피처 구조체 (Vulkan 1.0/1.1 기능)
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    deviceFeatures2.pNext = &vulkan13Features; // 다음 체인으로 vulkan13Features 연결
+    deviceFeatures2.pNext = &vulkan12Features;
 
-    // 샘플러 비등방성 필터링과 같은 기본 기능은 deviceFeatures2.features에 직접 설정
+    // 물리 장치에서 지원하는 기본 피처 가져오기
     VkPhysicalDeviceFeatures supportedFeatures;
     vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
+
     if (supportedFeatures.samplerAnisotropy) {
         deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
     }
-    else {
-        std::cout << "Warning: Sampler Anisotropy is not supported!" << std::endl;
+    if (supportedFeatures.shaderInt64) {
+        deviceFeatures2.features.shaderInt64 = VK_TRUE;
     }
 
-    // 3. Logical Device 생성 정보 구성
+    // 5. Logical Device 생성 정보 설정
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pNext = &deviceFeatures2; // 최상위 기능 구조체인 deviceFeatures2를 pNext에 연결
+    createInfo.pNext = &deviceFeatures2;
 
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-    // VkPhysicalDeviceFeatures2를 사용할 때는 pEnabledFeatures를 반드시 nullptr로 설정해야 함
+    // Features2를 쓸 때는 pEnabledFeatures를 반드시 nullptr로!
     createInfo.pEnabledFeatures = nullptr;
 
-    // 필요한 디바이스 확장 목록
-    std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
+    createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-    // 디바이스 레벨 Validation Layer 활성화 (구버전 호환성을 위함)
     if (enableValidationLayers) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -330,16 +377,16 @@ void VulkanContext::createLogicalDevice() {
         createInfo.enabledLayerCount = 0;
     }
 
-    // 4. Logical Device 생성
+    // 6. Logical Device 생성
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    // 5. 생성된 디바이스로부터 큐 핸들 가져오기
+    // 7. 큐 핸들 획득
     vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
-    std::cout << "Logical device created with Dynamic Rendering and Descriptor Indexing support!" << std::endl;
+    std::cout << "Logical device created successfully!" << std::endl;
 }
 
 void VulkanContext::createCommandPool() {

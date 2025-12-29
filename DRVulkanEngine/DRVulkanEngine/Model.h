@@ -15,6 +15,7 @@ class UniformBuffer;
 class TextureArray;
 class UniformBufferArray;
 class Resource; 
+class BDABuffer;
 #define MAX_BONES 100 
 struct UniformBufferBone {
     alignas(16) glm::mat4 finalBoneMatrix[MAX_BONES]; // 메모리 정렬 보장
@@ -34,8 +35,8 @@ public:
 
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
-    Model(Model&& other) noexcept = default;
-    Model& operator=(Model&& other) noexcept = default;
+    Model(Model&& other) noexcept;
+    Model& operator=(Model&& other) noexcept;
 
     void prepareBindless(UniformBufferArray& modelUbArray, UniformBufferArray& materialUbArray, UniformBufferArray& boneUbArray, TextureArray& textures);
 	void updateUniformBuffer(const glm::mat4& modelMatrix, const glm::mat4& viewMatrix, const glm::mat4& projMatrix);
@@ -54,10 +55,15 @@ private:
 
 	int modelUbIndex_ = -1;
 	int boneUbIndex_ = -1;
+    int boneTbIndex = -1;
+
 
     std::unique_ptr<Animator> animator_;
 	std::vector<Animation> animations_;
 
+#if USE_BDA_BUFFER
+    std::unique_ptr<BDABuffer> boneBDA_;
+#endif
     std::unique_ptr<class UniformBuffer> boneUB_;
 
     bool boneDataDirty_ = true;

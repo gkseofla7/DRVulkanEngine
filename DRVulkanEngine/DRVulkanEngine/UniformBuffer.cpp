@@ -1,7 +1,7 @@
 #include "UniformBuffer.h"
-#include "VulkanContext.h" // context->getDevice() 등을 사용하기 위해 포함
+#include "VulkanContext.h"
 #include <stdexcept>
-#include <cstring> // memcpy를 사용하기 위해 포함
+#include <cstring>
 
 UniformBuffer::UniformBuffer(const VulkanContext* ctx, VkDeviceSize size) {
     // 1. 부모 클래스의 멤버 변수인 context를 설정합니다.

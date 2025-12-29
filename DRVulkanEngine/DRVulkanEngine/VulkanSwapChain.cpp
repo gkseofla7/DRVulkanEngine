@@ -218,7 +218,8 @@ VkRenderingAttachmentInfo VulkanSwapChain::getColorAttachmentInfo(uint32_t image
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = swapChainImageViews[imageIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     
@@ -232,7 +233,8 @@ VkRenderingAttachmentInfo VulkanSwapChain::getDepthAttachmentInfo() const {
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     depthAttachment.imageView = depthImageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
@@ -371,41 +373,41 @@ SwapChainSupportDetails VulkanSwapChain::querySwapChainSupport(VkPhysicalDevice 
 VkSurfaceFormatKHR VulkanSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     // HDR10 지원을 위한 포맷 우선순위
     
-    // 1. HDR10 - Rec. 2020 color space with PQ transfer function
-    for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
-            availableFormat.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT) {
-            std::cout << "HDR10 format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32 with HDR10_ST2084" << std::endl;
-            return availableFormat;
-        }
-    }
-    
-    // 2. Extended sRGB for wider color gamut
-    for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
-            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
-            std::cout << "Extended sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
-            return availableFormat;
-        }
-    }
-    
-    // 3. 16-bit float format for HDR
-    for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_R16G16B16A16_SFLOAT && 
-            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
-            std::cout << "HDR float16 format selected: VK_FORMAT_R16G16B16A16_SFLOAT" << std::endl;
-            return availableFormat;
-        }
-    }
-    
-    // 4. 10-bit format with standard sRGB (wider color gamut)
-    for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
-            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            std::cout << "10-bit sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
-            return availableFormat;
-        }
-    }
+    //// 1. HDR10 - Rec. 2020 color space with PQ transfer function
+    //for (const auto& availableFormat : availableFormats) {
+    //    if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+    //        availableFormat.colorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT) {
+    //        std::cout << "HDR10 format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32 with HDR10_ST2084" << std::endl;
+    //        return availableFormat;
+    //    }
+    //}
+    //
+    //// 2. Extended sRGB for wider color gamut
+    //for (const auto& availableFormat : availableFormats) {
+    //    if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+    //        availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+    //        std::cout << "Extended sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
+    //        return availableFormat;
+    //    }
+    //}
+    //
+    //// 3. 16-bit float format for HDR
+    //for (const auto& availableFormat : availableFormats) {
+    //    if (availableFormat.format == VK_FORMAT_R16G16B16A16_SFLOAT && 
+    //        availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+    //        std::cout << "HDR float16 format selected: VK_FORMAT_R16G16B16A16_SFLOAT" << std::endl;
+    //        return availableFormat;
+    //    }
+    //}
+    //
+    //// 4. 10-bit format with standard sRGB (wider color gamut)
+    //for (const auto& availableFormat : availableFormats) {
+    //    if (availableFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 && 
+    //        availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+    //        std::cout << "10-bit sRGB format selected: VK_FORMAT_A2B10G10R10_UNORM_PACK32" << std::endl;
+    //        return availableFormat;
+    //    }
+    //}
     
     // 5. Fallback to standard sRGB
     for (const auto& availableFormat : availableFormats) {
@@ -435,7 +437,6 @@ VkExtent2D VulkanSwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& cap
     } else {
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
-
         VkExtent2D actualExtent = {
             static_cast<uint32_t>(width),
             static_cast<uint32_t>(height)

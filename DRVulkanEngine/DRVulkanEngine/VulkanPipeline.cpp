@@ -9,7 +9,7 @@
 #include <iostream>
 #include "DescriptorPool.h"
 #include "DescriptorSet.h"
-
+#include "GlobalData.h"
 // Vertex 구조체 구현 (VulkanApp.cpp에서 이동)
 
 
@@ -70,9 +70,31 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
 
     for (const Shader* shader : shaders) {
         shaderStages.push_back(shader->stageInfo_);
-
     }
+////////////////////////////////////
+    // TODO. 임시 테스트용 코드
+    struct SpecializationData {
+        VkBool32 useBDA; // 0 (false) 또는 1 (true)
+    };
 
+    SpecializationData specData;
+    specData.useBDA = USE_BDA_BUFFER? VK_TRUE : VK_FALSE; // 또는 VK_FALSE로 결정
+
+    // 2. 셰이더의 어떤 상수와 매핑할지 정의
+    VkSpecializationMapEntry entry{};
+    entry.constantID = 0;        // GLSL의 constant_id = 0과 매치
+    entry.offset = 0;            // specData 구조체 내의 오프셋
+    entry.size = sizeof(VkBool32);
+
+    // 3. 스페셜라이제이션 정보 통합
+    VkSpecializationInfo specInfo{};
+    specInfo.mapEntryCount = 1;
+    specInfo.pMapEntries = &entry;
+    specInfo.dataSize = sizeof(SpecializationData);
+    specInfo.pData = &specData;
+
+    shaderStages[0].pSpecializationInfo = &specInfo;
+////////////////////////////////////
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // 바깥에 선언
     if (config_.useVertexInput) {
@@ -175,11 +197,12 @@ void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
         for (const auto& range : shader->pushConstantRanges_) {
             auto it = std::find_if(totalPushConstantRanges.begin(), totalPushConstantRanges.end(),
                 [&](const VkPushConstantRange& r) {
-                    return r.offset == range.offset && r.size == range.size;
+                    return r.offset == range.offset;
                 });
 
             if (it != totalPushConstantRanges.end()) {
                 it->stageFlags |= range.stageFlags;
+                it->size = std::max(it->size, range.size);
             }
             else {
                 totalPushConstantRanges.push_back(range);

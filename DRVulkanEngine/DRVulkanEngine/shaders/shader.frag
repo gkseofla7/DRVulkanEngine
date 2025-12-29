@@ -1,4 +1,6 @@
 #version 450
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_EXT_buffer_reference : enable
 
 #define MAX_MATERIALS 128
 #define MAX_TEXTURES_PER_MATERIAL 128
@@ -14,6 +16,7 @@ layout(location = 0) out vec4 outColor;
 
 // --- PushConstant ---
 layout(push_constant) uniform PushConstants {
+    uint64_t boneAddress;
     int modelUBIndex;
     int materialIndex;
     int boneUbIndex;
