@@ -32,10 +32,10 @@ struct UniformBufferScene {
     alignas(16) glm::mat4 view;
     alignas(16) glm::vec3 lightPos;
     alignas(16) glm::vec3 viewPos;
-    alignas(4) float exposure;        // HDR ³ëÃâ°ª
-    alignas(4) float gamma;           // °¨¸¶ º¸Á¤°ª
-    alignas(4) float maxWhite;        // ÃÖ´ë Èò»ö°ª (Reinhard Extended¿ë)
-    alignas(4) int tonemapOperator;   // Åæ¸ÊÇÎ ¿¬»êÀÚ ¼±ÅÃ (0=ACES, 1=Reinhard, 2=ReinhardExt, 3=Exposure)
+    alignas(4) float exposure;        // HDR ï¿½ï¿½ï¿½â°ª
+    alignas(4) float gamma;           // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    alignas(4) float maxWhite;        // ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ (Reinhard Extendedï¿½ï¿½)
+    alignas(4) int tonemapOperator;   // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (0=ACES, 1=Reinhard, 2=ReinhardExt, 3=Exposure)
 };
 
 class VulkanApp {
@@ -57,7 +57,7 @@ private:
     void drawFrame();
 
     void updateUniformBuffer(uint32_t currentImage);
-    void handleHDRInput(); // HDR °ü·Ã Å°º¸µå ÀÔ·Â Ã³¸®
+    void handleHDRInput(); // HDR ï¿½ï¿½ï¿½ï¿½ Å°ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½ Ã³ï¿½ï¿½
 
     void loadAssets();
 
@@ -102,15 +102,15 @@ private:
     UniformBufferArray boneUbArray_;
     std::unique_ptr<Texture> defaultTexture_;
 
-    // Ä«¸Þ¶ó °ü·Ã
+    // Ä«ï¿½Þ¶ï¿½ ï¿½ï¿½ï¿½ï¿½
     float lastFrame;
     float lastX = 800.0f / 2.0;
     float lastY = 600.0f / 2.0;
     bool firstMouse = true;
 
-    // HDR Åæ¸ÊÇÎ °ü·Ã º¯¼öµé
-    float hdrExposure = 1.0f;     // ±âº» ³ëÃâ°ª
-    float hdrGamma = 2.2f;        // ±âº» °¨¸¶°ª
-    float hdrMaxWhite = 4.0f;     // ÃÖ´ë Èò»ö°ª
+    // HDR ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    float hdrExposure = 1.0f;     // ï¿½âº» ï¿½ï¿½ï¿½â°ª
+    float hdrGamma = 2.2f;        // ï¿½âº» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    float hdrMaxWhite = 4.0f;     // ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
     int tonemapMode = 0;          // 0=ACES, 1=Reinhard, 2=ReinhardExt, 3=Exposure
 };

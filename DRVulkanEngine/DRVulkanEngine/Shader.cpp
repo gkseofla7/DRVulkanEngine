@@ -10,16 +10,16 @@ void Shader::initialize(const VulkanContext* inContext, const std::string& inSha
 	context_ = inContext;
 
     auto shaderCode = readFile(inShaderPath);
-    module_ = createShaderModule(shaderCode); // createShaderModuleÀÌ context¸¦ ¹Þ´Â´Ù°í °¡Á¤
+    module_ = createShaderModule(shaderCode); // createShaderModuleï¿½ï¿½ contextï¿½ï¿½ ï¿½Þ´Â´Ù°ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    // --- 2. SPIR-V ¸®ÇÃ·º¼Ç(Reflection) ½ÃÀÛ ---
+    // --- 2. SPIR-V ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½(Reflection) ï¿½ï¿½ï¿½ï¿½ ---
     SpvReflectShaderModule reflectModule;
     SpvReflectResult result = spvReflectCreateShaderModule(shaderCode.size(), shaderCode.data(), &reflectModule);
     if (result != SPV_REFLECT_RESULT_SUCCESS) {
-        throw std::runtime_error("SPIR-V ¸®ÇÃ·º¼Ç ¸ðµâ »ý¼º ½ÇÆÐ!");
+        throw std::runtime_error("SPIR-V ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!");
     }
 
-    // --- 3. ±âº» ¼ÎÀÌ´õ ½ºÅ×ÀÌÁö Á¤º¸ Ã¤¿ì±â ---
+    // --- 3. ï¿½âº» ï¿½ï¿½ï¿½Ì´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã¤ï¿½ï¿½ï¿½ ---
     stageInfo_.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo_.stage = static_cast<VkShaderStageFlagBits>(reflectModule.shader_stage);
     stageInfo_.module = module_;
@@ -27,14 +27,14 @@ void Shader::initialize(const VulkanContext* inContext, const std::string& inSha
     //const SpvReflectEntryPoint* entry_point = spvReflectGetEntryPoint(&reflectModule, "main");
 
     //if (entry_point) {
-    //    stageInfo_.pName = entry_point->name; // ´ç¿¬È÷ "main"ÀÌ ÇÒ´çµÊ
+    //    stageInfo_.pName = entry_point->name; // ï¿½ç¿¬ï¿½ï¿½ "main"ï¿½ï¿½ ï¿½Ò´ï¿½ï¿½
     //}
     //else {
-    //    // ¿À·ù Ã³¸®: "main" ÁøÀÔÁ¡À» Ã£À» ¼ö ¾øÀ½!
-    //    throw std::runtime_error("Shader Entry Point ¸øÃ£À½!!");
+    //    // ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½: "main" ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!
+    //    throw std::runtime_error("Shader Entry Point ï¿½ï¿½Ã£ï¿½ï¿½!!");
     //}
 
-    // --- 4. Descriptor Set Layout Á¤º¸ ÃßÃâ ---
+    // --- 4. Descriptor Set Layout ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
     uint32_t setCount = 0;
     spvReflectEnumerateDescriptorSets(&reflectModule, &setCount, nullptr);
     std::vector<SpvReflectDescriptorSet*> sets(setCount);
@@ -57,7 +57,7 @@ void Shader::initialize(const VulkanContext* inContext, const std::string& inSha
         descriptorSetLayouts_[pSet->set] = bindings;
     }
 
-    // --- 5. Vertex Input Attribute Á¤º¸ ÃßÃâ (Vertex ShaderÀÏ °æ¿ì¿¡¸¸) ---
+    // --- 5. Vertex Input Attribute ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (Vertex Shaderï¿½ï¿½ ï¿½ï¿½ì¿¡ï¿½ï¿½) ---
     //if (reflectModule.shader_stage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) {
     //    uint32_t varCount = 0;
     //    spvReflectEnumerateInputVariables(&reflectModule, &varCount, nullptr);
@@ -65,29 +65,29 @@ void Shader::initialize(const VulkanContext* inContext, const std::string& inSha
     //    spvReflectEnumerateInputVariables(&reflectModule, &varCount, inputs.data());
 
     //    for (const auto* pVar : inputs) {
-    //        // Built-in º¯¼ö (¿¹: gl_VertexIndex)´Â Á¦¿Ü
+    //        // Built-in ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½: gl_VertexIndex)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     //        if (pVar->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
     //            continue;
     //        }
     //        VkVertexInputAttributeDescription attribute{};
     //        attribute.location = pVar->location;
-    //        attribute.binding = 0; // ?? ÇÏ³ªÀÇ ¹öÅØ½º ¹öÆÛ¸¦ 0¹ø ¹ÙÀÎµù¿¡ ¾´´Ù°í °¡Á¤
+    //        attribute.binding = 0; // ?? ï¿½Ï³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ø½ï¿½ ï¿½ï¿½ï¿½Û¸ï¿½ 0ï¿½ï¿½ ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ù°ï¿½ ï¿½ï¿½ï¿½ï¿½
     //        attribute.format = static_cast<VkFormat>(pVar->format);
-    //        attribute.offset = 0; // ?? Áß¿ä: ÀÌ offsetÀº ³ªÁß¿¡ C++ Vertex ±¸Á¶Ã¼¸¦ ±âÁØÀ¸·Î ´Ù½Ã °è»êÇØ¾ß ÇÔ!
+    //        attribute.offset = 0; // ?? ï¿½ß¿ï¿½: ï¿½ï¿½ offsetï¿½ï¿½ ï¿½ï¿½ï¿½ß¿ï¿½ C++ Vertex ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù½ï¿½ ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ ï¿½ï¿½!
     //        inputAttributes_.push_back(attribute);
     //    }
     //}
 
     if (reflectModule.shader_stage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) {
-        // ¸®ÇÃ·º¼Ç ¹æ½Ä ´ë½Å, C++ Vertex ±¸Á¶Ã¼¿¡ Á¤ÀÇµÈ Á¤º¸¸¦ Á÷Á¢ °¡Á®¿É´Ï´Ù.
-        // ÀÌ ¹æ½ÄÀº offsetÀ» Á¤È®ÇÏ°Ô °è»êÇÒ ¼ö ÀÖ¾î ÈÎ¾À ¾ÈÁ¤ÀûÀÔ´Ï´Ù.
+        // ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½, C++ Vertex ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½Çµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½É´Ï´ï¿½.
+        // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ offsetï¿½ï¿½ ï¿½ï¿½È®ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö¾ï¿½ ï¿½Î¾ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´Ï´ï¿½.
         auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
-        // Shader Å¬·¡½º°¡ ÆÄÀÌÇÁ¶óÀÎ »ý¼º ½Ã »ç¿ëÇÒ ¼ö ÀÖµµ·Ï ³»ºÎ ¸â¹ö º¯¼ö¿¡ º¹»çÇÕ´Ï´Ù.
+        // Shader Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Öµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
         inputAttributes_.assign(attributeDescriptions.begin(), attributeDescriptions.end());
     }
 
-    // --- 6. Push Constant Á¤º¸ ÃßÃâ ---
+    // --- 6. Push Constant ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
     uint32_t blockCount = 0;
     spvReflectEnumeratePushConstantBlocks(&reflectModule, &blockCount, nullptr);
     std::vector<SpvReflectBlockVariable*> blocks(blockCount);
@@ -101,11 +101,11 @@ void Shader::initialize(const VulkanContext* inContext, const std::string& inSha
         pushConstantRanges_.push_back(range);
     }
 
-    // --- 7. ¸®ÇÃ·º¼Ç ¸ðµâ Á¤¸® ---
+    // --- 7. ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
     spvReflectDestroyShaderModule(&reflectModule);
 }
 
-// Shader °´Ã¼°¡ ÆÄ±«µÉ ¶§ ¸ðµâµµ ÆÄ±«ÇØ¾ß ÇÕ´Ï´Ù.
+// Shader ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½Ä±ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½âµµ ï¿½Ä±ï¿½ï¿½Ø¾ï¿½ ï¿½Õ´Ï´ï¿½.
 void Shader::destroy(VkDevice device) {
     if (module_ != VK_NULL_HANDLE) {
         vkDestroyShaderModule(device, module_, nullptr);

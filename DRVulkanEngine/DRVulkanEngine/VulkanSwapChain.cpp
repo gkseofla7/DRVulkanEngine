@@ -22,7 +22,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanSwapChain&& other) noexcept
     , context(other.context)
     , window(other.window) {
     
-    // ÀÌµ¿µÈ °´Ã¼ÀÇ ÇÚµéµéÀ» ¹«È¿È­
+    // ï¿½Ìµï¿½ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½Úµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¿È­
     other.swapChain = VK_NULL_HANDLE;
     other.swapChainImageFormat = VK_FORMAT_UNDEFINED;
     other.swapChainExtent = {0, 0};
@@ -69,7 +69,7 @@ void VulkanSwapChain::initialize(const VulkanContext* vulkanContext, GLFWwindow*
     
     createSwapChain();
     createImageViews();
-    createDepthResources(); // Depth Buffer »ý¼º Ãß°¡
+    createDepthResources(); // Depth Buffer ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
     
     std::cout << "SwapChain initialized with Dynamic Rendering and Depth Buffer support!" << std::endl;
 }
@@ -147,7 +147,7 @@ void VulkanSwapChain::createDepthResources() {
 }
 
 void VulkanSwapChain::recreate() {
-    // ±âÁ¸ Depth Buffer Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ Depth Buffer ï¿½ï¿½ï¿½ï¿½
     if (depthImageView != VK_NULL_HANDLE) {
         vkDestroyImageView(context->getDevice(), depthImageView, nullptr);
         depthImageView = VK_NULL_HANDLE;
@@ -161,7 +161,7 @@ void VulkanSwapChain::recreate() {
         depthImageMemory = VK_NULL_HANDLE;
     }
 
-    // ±âÁ¸ SwapChain Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ SwapChain ï¿½ï¿½ï¿½ï¿½
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(context->getDevice(), imageView, nullptr);
     }
@@ -172,7 +172,7 @@ void VulkanSwapChain::recreate() {
         swapChain = VK_NULL_HANDLE;
     }
 
-    // »õ·Î¿î SwapChain°ú Depth Buffer »ý¼º
+    // ï¿½ï¿½ï¿½Î¿ï¿½ SwapChainï¿½ï¿½ Depth Buffer ï¿½ï¿½ï¿½ï¿½
     createSwapChain();
     createImageViews();
     createDepthResources();
@@ -185,7 +185,7 @@ void VulkanSwapChain::cleanup() {
         return;
     }
 
-    // Depth Buffer Á¤¸®
+    // Depth Buffer ï¿½ï¿½ï¿½ï¿½
     if (depthImageView != VK_NULL_HANDLE) {
         vkDestroyImageView(context->getDevice(), depthImageView, nullptr);
         depthImageView = VK_NULL_HANDLE;
@@ -199,13 +199,13 @@ void VulkanSwapChain::cleanup() {
         depthImageMemory = VK_NULL_HANDLE;
     }
 
-    // Color Image Views Á¤¸®
+    // Color Image Views ï¿½ï¿½ï¿½ï¿½
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(context->getDevice(), imageView, nullptr);
     }
     swapChainImageViews.clear();
 
-    // SwapChain Á¤¸®
+    // SwapChain ï¿½ï¿½ï¿½ï¿½
     if (swapChain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(context->getDevice(), swapChain, nullptr);
         swapChain = VK_NULL_HANDLE;
@@ -223,8 +223,8 @@ VkRenderingAttachmentInfo VulkanSwapChain::getColorAttachmentInfo(uint32_t image
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     
-    // HDR ¹è°æ»ö - ´õ ¾îµÎ¿î »ö»óÀ¸·Î HDR È¿°ú¸¦ ´õ Àß º¸ÀÌ°Ô ÇÔ
-    colorAttachment.clearValue.color = {{0.01f, 0.01f, 0.02f, 1.0f}}; // ¾îµÎ¿î ºí·ç Åæ
+    // HDR ï¿½ï¿½ï¿½ï¿½ - ï¿½ï¿½ ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ HDR È¿ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Ì°ï¿½ ï¿½ï¿½
+    colorAttachment.clearValue.color = {{0.01f, 0.01f, 0.02f, 1.0f}}; // ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½
     
     return colorAttachment;
 }
@@ -242,7 +242,7 @@ VkRenderingAttachmentInfo VulkanSwapChain::getDepthAttachmentInfo() const {
 }
 
 VkRenderingInfo VulkanSwapChain::getRenderingInfo(uint32_t imageIndex) const {
-    // thread_local staticÀ¸·Î ¾ÈÀüÇÑ ÂüÁ¶ º¸Àå
+    // thread_local staticï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     static thread_local VkRenderingAttachmentInfo colorAttachment;
     static thread_local VkRenderingAttachmentInfo depthAttachment;
     
@@ -256,7 +256,7 @@ VkRenderingInfo VulkanSwapChain::getRenderingInfo(uint32_t imageIndex) const {
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = &depthAttachment; // Depth Attachment Ãß°¡
+    renderingInfo.pDepthAttachment = &depthAttachment; // Depth Attachment ï¿½ß°ï¿½
     renderingInfo.pStencilAttachment = nullptr;
     
     return renderingInfo;
@@ -371,7 +371,7 @@ SwapChainSupportDetails VulkanSwapChain::querySwapChainSupport(VkPhysicalDevice 
 }
 
 VkSurfaceFormatKHR VulkanSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
-    // HDR10 Áö¿øÀ» À§ÇÑ Æ÷¸Ë ¿ì¼±¼øÀ§
+    // HDR10 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ì¼±ï¿½ï¿½ï¿½ï¿½
     
     //// 1. HDR10 - Rec. 2020 color space with PQ transfer function
     //for (const auto& availableFormat : availableFormats) {

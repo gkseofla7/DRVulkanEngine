@@ -6,17 +6,17 @@ struct PipelineConfig {
     std::string vertexShaderPath;
     std::string fragmentShaderPath;
 
-    VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS; // ±âº»°ªÀº LESS
-    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT; // ±âº»°ªÀº BACK
+    VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS; // ï¿½âº»ï¿½ï¿½ï¿½ï¿½ LESS
+    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT; // ï¿½âº»ï¿½ï¿½ï¿½ï¿½ BACK
 
     bool blendEnable = VK_FALSE;
-    // ºí·»µù ¹æ½Ä ¼³Á¤ (ÀÏ¹ÝÀûÀÎ ¾ËÆÄ ºí·»µù ±âº»°ª)
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Ï¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½âº»ï¿½ï¿½)
     VkBlendFactor srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     VkBlendFactor dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-    // ±íÀÌ Å×½ºÆ® È°¼ºÈ­ ¿©ºÎ
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½×½ï¿½Æ® È°ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½
     bool depthTestEnable = VK_TRUE;
-    // ±íÀÌ ¹öÆÛ ¾²±â È°¼ºÈ­ ¿©ºÎ
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È°ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½
     bool depthWriteEnable = VK_TRUE;
 
     bool useVertexInput = true;

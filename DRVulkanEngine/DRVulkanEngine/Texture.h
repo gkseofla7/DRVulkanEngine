@@ -9,7 +9,7 @@ public:
 		VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
 	~Texture();
 
-	// Getter ¸Þ¼­µåµé
+	// Getter í•¨ìˆ˜ë“¤
 	VkImage getImage() const { return texture_; }
 	VkImageView getImageView() const { return textureView_; }
 	VkSampler getSampler() const { return textureSampler_; }
@@ -35,6 +35,6 @@ private:
 	mutable VkDescriptorImageInfo imageInfo_;
 
 	VkImageLayout currentLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-	VkFormat format_; // aspect mask °áÁ¤À» À§ÇØ formatµµ ÀúÀå
+	VkFormat format_;
 };
 

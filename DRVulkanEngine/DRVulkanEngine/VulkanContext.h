@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-// GLFW Àü¹æ ¼±¾ð
+// GLFW ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 struct GLFWwindow;
 
 struct QueueFamilyIndices {
@@ -27,12 +27,10 @@ private:
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkCommandPool commandPool_ = VK_NULL_HANDLE;
     
-    // Debug °ü·Ã ¸â¹ö Ãß°¡
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
     
-    // Debug ¸ðµå ¼³Á¤
     #ifdef _DEBUG
-        const bool enableValidationLayers = true;
+        const bool enableValidationLayers = false;
     #else
         const bool enableValidationLayers = false;
     #endif
@@ -45,15 +43,15 @@ public:
     VulkanContext() = default;
     ~VulkanContext();
 
-    // º¹»ç »ý¼ºÀÚ¿Í ´ëÀÔ ¿¬»êÀÚ »èÁ¦ (RAII ÆÐÅÏ)
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (RAII ï¿½ï¿½ï¿½ï¿½)
     VulkanContext(const VulkanContext&) = delete;
     VulkanContext& operator=(const VulkanContext&) = delete;
 
-    // ÀÌµ¿ »ý¼ºÀÚ¿Í ÀÌµ¿ ´ëÀÔ ¿¬»êÀÚ
+    // ï¿½Ìµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½ ï¿½Ìµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     VulkanContext(VulkanContext&& other) noexcept;
     VulkanContext& operator=(VulkanContext&& other) noexcept;
 
-    // ÃÊ±âÈ­ ¹× Á¤¸®
+    // ï¿½Ê±ï¿½È­ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	void initialize(GLFWwindow* window);
     void createInstance();
     void createSurface(GLFWwindow* window);
@@ -64,7 +62,7 @@ public:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     void cleanup();
 
-    // Getter ¸Þ¼­µåµé
+    // Getter ï¿½Þ¼ï¿½ï¿½ï¿½ï¿½
     VkInstance getInstance() const { return instance; }
     VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
     VkDevice getDevice() const { return device; }
@@ -73,7 +71,7 @@ public:
     VkSurfaceKHR getSurface() const { return surface; }
     VkCommandPool getCommandPool() const { return commandPool_; }
 
-    // À¯Æ¿¸®Æ¼ ¸Þ¼­µåµé
+    // ï¿½ï¿½Æ¿ï¿½ï¿½Æ¼ ï¿½Þ¼ï¿½ï¿½ï¿½ï¿½
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
     const uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
@@ -81,13 +79,13 @@ private:
     bool isDeviceSuitable(VkPhysicalDevice device);
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
     
-    // Debug °ü·Ã Private ¸Þ¼­µåµé
+    // Debug ï¿½ï¿½ï¿½ï¿½ Private ï¿½Þ¼ï¿½ï¿½ï¿½ï¿½
     bool checkValidationLayerSupport();
     std::vector<const char*> getRequiredExtensions();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     void setupDebugMessenger();
     
-    // Debug ÄÝ¹é ÇÔ¼ö
+    // Debug ï¿½Ý¹ï¿½ ï¿½Ô¼ï¿½
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,

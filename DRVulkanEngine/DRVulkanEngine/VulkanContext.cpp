@@ -7,7 +7,7 @@
 #include <iostream>
 #include <cstring>
 
-// Debug Utils Extension ÇÔ¼ö Æ÷ÀÎÅÍµé
+// Debug Utils Extension ï¿½Ô¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Íµï¿½
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -38,7 +38,7 @@ VulkanContext::VulkanContext(VulkanContext&& other) noexcept
     , commandPool_(other.commandPool_)
     , debugMessenger(other.debugMessenger) {
     
-    // ÀÌµ¿µÈ °´Ã¼ÀÇ ÇÚµéµéÀ» ¹«È¿È­
+    // ï¿½Ìµï¿½ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½Úµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¿È­
     other.instance = VK_NULL_HANDLE;
     other.physicalDevice = VK_NULL_HANDLE;
     other.device = VK_NULL_HANDLE;
@@ -153,7 +153,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData) {
 
-    // ¸Þ½ÃÁö Å¸ÀÔ¿¡ µû¸¥ Á¢µÎ»ç
+    // ï¿½Þ½ï¿½ï¿½ï¿½ Å¸ï¿½Ô¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Î»ï¿½
     std::string prefix = "[VULKAN] ";
     if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
         prefix += "[VALIDATION] ";
@@ -162,7 +162,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
         prefix += "[PERFORMANCE] ";
     }
 
-    // ¸Þ½ÃÁö ½É°¢µµ¿¡ µû¸¥ Ãâ·Â
+    // ï¿½Þ½ï¿½ï¿½ï¿½ ï¿½É°ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
         std::cerr << prefix << "ERROR: " << pCallbackData->pMessage << std::endl;
     } else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
@@ -188,15 +188,15 @@ void VulkanContext::createInstance() {
     appInfo.pEngineName = "DRVulkanEngine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 
-    // API ¹öÀüÀ» 1.3À¸·Î ¼³Á¤ (ÃÖ½Å ±â´É ´ëÀÀ)
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    // getRequiredExtensions()¿¡¼­ ¹ÝÈ¯µÈ È®Àå ¸ñ·Ï »ç¿ë
     auto extensions = getRequiredExtensions();
+    extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -250,7 +250,7 @@ void VulkanContext::pickPhysicalDevice() {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
 
-    // ¼±ÅÃµÈ µð¹ÙÀÌ½º Á¤º¸ Ãâ·Â
+    // ï¿½ï¿½ï¿½Ãµï¿½ ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
     
@@ -261,7 +261,6 @@ void VulkanContext::pickPhysicalDevice() {
 }
 
 void VulkanContext::createLogicalDevice() {
-    // 1. Å¥ ÆÐ¹Ð¸® ÀÎµ¦½º Ã£±â
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -280,7 +279,6 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    // 2. ÇöÀç ±â±â¿¡¼­ Áö¿øÇÏ´Â ¸ðµç È®Àå ±â´É ¸ñ·Ï °¡Á®¿À±â (µð¹ö±ë ¹× Ã¼Å©¿ë)
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
     std::vector<VkExtensionProperties> availableExtensions(extensionCount);
@@ -293,43 +291,29 @@ void VulkanContext::createLogicalDevice() {
         return false;
         };
 
-    // 3. È°¼ºÈ­ÇÒ µð¹ÙÀÌ½º È®Àå ¸ñ·Ï ±¸¼º
     std::vector<const char*> enabledExtensions;
 
-    // [ÇÊ¼ö] ½º¿ÒÃ¼ÀÎ ±âº» ±â´É
     enabledExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-    // [ÇÊ¼ö/¼±ÅÃ] HDR ÄÃ·¯ ½ºÆäÀÌ½º È®Àå (»ç¿ëÀÚ´ÔÀÌ ¸»¾¸ÇÏ½Å ºÎºÐ)
-    // RTX 3060Àº Áö¿øÇØ¾ß Á¤»óÀÔ´Ï´Ù. ¸¸¾à ¿©±â¼­ ´©¶ôµÇ¸é ÇÏ´Ü¿¡¼­ °æ°í¸¦ ¶ç¿ó´Ï´Ù.
-    if (isExtensionSupported(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
-        enabledExtensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
-    }
-    else {
-        std::cerr << "CRITICAL: VK_EXT_swapchain_colorspace is NOT supported by this device!" << std::endl;
-        // ÇÊ¿äÇÏ´Ù¸é ¿©±â¼­ °­Á¦·Î Ãß°¡ÇÒ ¼öµµ ÀÖÁö¸¸, Áö¿ø ¾È ÇÏ´Â ±â±â¶ó¸é vkCreateDevice¿¡¼­ ¿¡·¯°¡ ³³´Ï´Ù.
-        // enabledExtensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME); 
-    }
-
-    // [¼±ÅÃ] SPIR-V ¼ÎÀÌ´õ °ü·Ã È®Àå
     if (isExtensionSupported(VK_KHR_SHADER_RELAXED_EXTENDED_INSTRUCTION_EXTENSION_NAME)) {
         enabledExtensions.push_back(VK_KHR_SHADER_RELAXED_EXTENDED_INSTRUCTION_EXTENSION_NAME);
     }
 
-    // [¼±ÅÃ] Nsight µð¹ö±ë¿ë
     if (isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)) {
         enabledExtensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
     }
 
-    // 4. ÇÇÃ³ Ã¼ÀÎ(pNext Chain) ±¸¼º
 
-    // [Ã¼ÀÎ 3] Vulkan 1.3 ÇÇÃ³ (Synchronization2, Dynamic Rendering)
+    VkPhysicalDeviceShaderRelaxedExtendedInstructionFeaturesKHR relaxedInstFeatures{};
+    relaxedInstFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_RELAXED_EXTENDED_INSTRUCTION_FEATURES_KHR;
+    relaxedInstFeatures.shaderRelaxedExtendedInstruction = VK_TRUE;
+
     VkPhysicalDeviceVulkan13Features vulkan13Features{};
     vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     vulkan13Features.dynamicRendering = VK_TRUE;
-    vulkan13Features.synchronization2 = VK_TRUE; // Layout KHR ¿¡·¯ ÇØ°á ÇÙ½É
-    vulkan13Features.pNext = nullptr;
+    vulkan13Features.synchronization2 = VK_TRUE;
+    vulkan13Features.pNext = &relaxedInstFeatures;
 
-    // [Ã¼ÀÎ 2] Vulkan 1.2 ÇÇÃ³ (Descriptor Indexing, BDA)
     VkPhysicalDeviceVulkan12Features vulkan12Features{};
     vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     vulkan12Features.pNext = &vulkan13Features;
@@ -339,12 +323,10 @@ void VulkanContext::createLogicalDevice() {
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
 #endif
 
-    // [Ã¼ÀÎ 1] ÃÖ»óÀ§ ÇÇÃ³ ±¸Á¶Ã¼ (Vulkan 1.0/1.1 ±â´É)
     VkPhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures2.pNext = &vulkan12Features;
 
-    // ¹°¸® ÀåÄ¡¿¡¼­ Áö¿øÇÏ´Â ±âº» ÇÇÃ³ °¡Á®¿À±â
     VkPhysicalDeviceFeatures supportedFeatures;
     vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
 
@@ -355,7 +337,6 @@ void VulkanContext::createLogicalDevice() {
         deviceFeatures2.features.shaderInt64 = VK_TRUE;
     }
 
-    // 5. Logical Device »ý¼º Á¤º¸ ¼³Á¤
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pNext = &deviceFeatures2;
@@ -363,7 +344,6 @@ void VulkanContext::createLogicalDevice() {
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-    // Features2¸¦ ¾µ ¶§´Â pEnabledFeatures¸¦ ¹Ýµå½Ã nullptr·Î!
     createInfo.pEnabledFeatures = nullptr;
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
@@ -377,12 +357,11 @@ void VulkanContext::createLogicalDevice() {
         createInfo.enabledLayerCount = 0;
     }
 
-    // 6. Logical Device »ý¼º
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    // 7. Å¥ ÇÚµé È¹µæ
+
     vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
@@ -438,7 +417,7 @@ void VulkanContext::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
 }
 
 void VulkanContext::cleanup() {
-    // Debug Messenger Á¤¸®
+    // Debug Messenger ï¿½ï¿½ï¿½ï¿½
     if (enableValidationLayers && debugMessenger != VK_NULL_HANDLE) {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         debugMessenger = VK_NULL_HANDLE;
@@ -514,7 +493,7 @@ bool VulkanContext::isDeviceSuitable(VkPhysicalDevice device) {
     QueueFamilyIndices indices = findQueueFamilies(device);
     bool extensionsSupported = checkDeviceExtensionSupport(device);
 
-    // Dynamic Rendering Áö¿ø È®ÀÎ
+    // Dynamic Rendering ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½
     VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{};
     dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
 

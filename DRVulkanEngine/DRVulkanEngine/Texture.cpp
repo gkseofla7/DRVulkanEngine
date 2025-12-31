@@ -1,15 +1,148 @@
 #include "Texture.h"
 #include "VulkanContext.h"
+#include "GlobalData.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <stdexcept>
 bool hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
+void SetImageBarrier(VkImageMemoryBarrier& barrier,
+    VkPipelineStageFlags& sourceStage,
+    VkPipelineStageFlags& destinationStage,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout)
+{
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+#if USE_GENERAL_LAYOUT
+    if (newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR || newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR)
+    {
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    if (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR || oldLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR)
+    {
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+#endif
+
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = 0;
+
+    // 1. ì´ˆê¸°í™” (Undefined -> Something)
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        barrier.srcAccessMask = 0;
+
+        if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        // 1. ë²”ìš© Attachment ë ˆì´ì•„ì›ƒ (Color + Depth/Stencil ì§€ì›)
+        else if (newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+        // 2. ë²”ìš© Read Only ë ˆì´ì•„ì›ƒ (Shader Sampling ë“±)
+        else if (newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; // ì£¼ë¡œ í”„ëž˜ê·¸ë¨¼íŠ¸ ì…°ì´ë”ì—ì„œ ì‚¬ìš©
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        else {
+            throw std::invalid_argument("Unsupported Undefined -> NewLayout transition!");
+        }
+    }
+    // 2. ì „ì†¡ ì™„ë£Œ í›„ ì½ê¸° (Transfer -> Read Only)
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+        else {
+            throw std::invalid_argument("Unsupported Transfer -> NewLayout transition!");
+        }
+    }
+
+    // 3. ë Œë”ë§ ì™„ë£Œ í›„ ì½ê¸° ë˜ëŠ” í™”ë©´ ì¶œë ¥ (Attachment -> Read/Present)
+    else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+        sourceStage = (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) ?
+            (VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT) :
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        if (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) barrier.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            barrier.dstAccessMask = 0;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        else {
+            throw std::invalid_argument("Unsupported Attachment -> NewLayout transition!");
+        }
+    }
+
+    // 4. ì½ê¸° ì „ìš© ìƒíƒœì—ì„œ ë‹¤ì‹œ ë Œë”ë§ (Read Only -> Attachment)
+    else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
+        sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        if (newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            if (newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) barrier.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        }
+        else {
+            throw std::invalid_argument("Unsupported ReadOnly -> NewLayout transition!");
+        }
+    }
+
+    // 5. ë²”ìš© ë ˆì´ì•„ì›ƒì—ì„œ ì „í™˜ (General -> Read/Present)
+    else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+        if (newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+        else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            barrier.dstAccessMask = 0;
+        }
+        else {
+            throw std::invalid_argument("Unsupported General -> NewLayout transition!");
+        }
+    }
+    else {
+        throw std::invalid_argument("Unsupported layout transition!");
+    }
+}
+
 Texture::Texture(const VulkanContext* context, const std::string& filepath) {
-    // Resource Å¬·¡½ºÀÇ context ¸â¹ö º¯¼ö µîÀ» ÃÊ±âÈ­
     this->context = context;
-    // ÆÄÀÏ °æ·Î¸¦ ¹Þ¾Æ ÃÊ±âÈ­ ÇÔ¼ö È£Ãâ
     initialize(filepath);
 }
 
@@ -18,12 +151,11 @@ Texture::Texture(const VulkanContext* context, uint32_t width, uint32_t height,
 {
     this->context = context;
     this->format_ = format;
-    // 1. VkImage ¹× VkDeviceMemory »ý¼º
-    // RenderTargetÀº DEVICE_LOCAL ¸Þ¸ð¸®¿¡ »ý¼ºÇÏ´Â °ÍÀÌ °¡Àå È¿À²ÀûÀÔ´Ï´Ù.
+
     createImage(width, height, format, VK_IMAGE_TILING_OPTIMAL, usage,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_, textureMemory_);
 
-    // 2. VkImageView »ý¼º
+
     textureView_ = createImageView(texture_, format, aspectFlags);
     if (aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT) {
         // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
@@ -33,32 +165,29 @@ Texture::Texture(const VulkanContext* context, uint32_t width, uint32_t height,
     }
     else if (aspectFlags == VK_IMAGE_ASPECT_DEPTH_BIT) {
         // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
-        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR);
-        currentLayout_ = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        transitionImageLayout(texture_, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        currentLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     }
     createTextureSampler();
 
-    // µð½ºÅ©¸³ÅÍ Á¤º¸ ¾÷µ¥ÀÌÆ® (ÇÊ¿ä ½Ã)
-    //imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // ¶Ç´Â »ç¿ë ¸ñÀû¿¡ ¸Â´Â ·¹ÀÌ¾Æ¿ô
+    //imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
-    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR; // ¶Ç´Â »ç¿ë ¸ñÀû¿¡ ¸Â´Â ·¹ÀÌ¾Æ¿ô
+    imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
     imageInfo_.imageView = textureView_;
     imageInfo_.sampler = textureSampler_;
 }
 
 Texture::~Texture() {
-    // »ý¼ºµÈ ¼ø¼­ÀÇ ¿ª¼øÀ¸·Î ¸®¼Ò½º¸¦ Á¤¸®ÇÕ´Ï´Ù.
     vkDestroyImageView(context->getDevice(), textureView_, nullptr);
     vkDestroyImage(context->getDevice(), texture_, nullptr);
     vkFreeMemory(context->getDevice(), textureMemory_, nullptr);
 	vkDestroySampler(context->getDevice(), textureSampler_, nullptr);
-    // Sampler°¡ ÀÖ´Ù¸é vkDestroySampler(...)µµ È£Ãâ
 }
 void Texture::initialize(const std::string& filepath) {
     int texWidth, texHeight, texChannels;
-    // stbi_load ÇÔ¼ö·Î ÀÌ¹ÌÁö ÆÄÀÏÀ» ºÒ·¯¿É´Ï´Ù.
-    // STBI_rgb_alpha ÇÃ·¡±×´Â ÀÌ¹ÌÁö¸¦ °­Á¦·Î RGBA(4Ã¤³Î) Çü½ÄÀ¸·Î ·ÎµåÇÕ´Ï´Ù.
+    // stbi_load ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½É´Ï´ï¿½.
+    // STBI_rgb_alpha ï¿½Ã·ï¿½ï¿½×´ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ RGBA(4Ã¤ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½Õ´Ï´ï¿½.
     stbi_uc* pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
@@ -69,54 +198,50 @@ void Texture::initialize(const std::string& filepath) {
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    // CPU¿¡¼­ Á¢±Ù °¡´ÉÇÏ°í(HOST_VISIBLE), º¹»çÀÇ ¿øº»(TRANSFER_SRC)ÀÌ µÉ ¹öÆÛ¸¦ »ý¼ºÇÕ´Ï´Ù.
+    // CPUï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½(HOST_VISIBLE), ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(TRANSFER_SRC)ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Û¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
     createBuffer(imageSize,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         stagingBuffer,
         stagingBufferMemory);
 
-    // Staging BufferÀÇ ¸Þ¸ð¸®¸¦ ¸ÅÇÎÇÏ¿© CPUÀÇ ÇÈ¼¿ µ¥ÀÌÅÍ¸¦ º¹»çÇÕ´Ï´Ù.
+    // Staging Bufferï¿½ï¿½ ï¿½Þ¸ð¸®¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ CPUï¿½ï¿½ ï¿½È¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
     void* data;
     vkMapMemory(context->getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(context->getDevice(), stagingBufferMemory);
 
-    // ¿øº» ÇÈ¼¿ µ¥ÀÌÅÍ´Â ÀÌÁ¦ CPU ¸Þ¸ð¸®¿¡¼­ ÇØÁ¦ÇØµµ µË´Ï´Ù.
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í´ï¿½ ï¿½ï¿½ï¿½ï¿½ CPU ï¿½Þ¸ð¸®¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ ï¿½Ë´Ï´ï¿½.
     stbi_image_free(pixels);
 
     format_ = VK_FORMAT_R8G8B8A8_SRGB;
     currentLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    // ÀÌ¹ÌÁö »ý¼º
+    // ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     createImage(texWidth, texHeight,
-        VK_FORMAT_R8G8B8A8_SRGB, // SRGB Æ÷¸ËÀº »ö»óÀ» ´õ ÀÚ¿¬½º·´°Ô Ç¥ÇöÇÕ´Ï´Ù.
+        VK_FORMAT_R8G8B8A8_SRGB, // SRGB ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ç¥ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
         VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // º¹»ç ´ë»ó + ¼ÎÀÌ´õ »ùÇÃ¸µ¿ë
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // ÃÖ°íÀÇ ¼º´ÉÀ» À§ÇØ GPU Àü¿ë ¸Þ¸ð¸®¿¡ »ý¼º
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½Ì´ï¿½ ï¿½ï¿½ï¿½Ã¸ï¿½ï¿½ï¿½
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // ï¿½Ö°ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ GPU ï¿½ï¿½ï¿½ï¿½ ï¿½Þ¸ð¸®¿ï¿½ ï¿½ï¿½ï¿½ï¿½
         texture_,
         textureMemory_);
 
-    // ·¹ÀÌ¾Æ¿ô º¯°æ ¹× µ¥ÀÌÅÍ º¹»ç
-    // (1) UNDEFINED -> TRANSFER_DST_OPTIMAL (º¹»ç ¹Þ±â ÁÁÀº ·¹ÀÌ¾Æ¿ôÀ¸·Î º¯°æ)
+    // (1) UNDEFINED -> TRANSFER_DST_OPTIMAL
     transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    // (2) Staging Buffer¿¡¼­ ÃÖÁ¾ ÀÌ¹ÌÁö·Î ÇÈ¼¿ µ¥ÀÌÅÍ º¹»ç
+    // (2) Staging Bufferï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     copyBufferToImage(stagingBuffer, texture_, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
-    // (3) TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL (¼ÎÀÌ´õ°¡ ÀÐ±â ÁÁÀº ·¹ÀÌ¾Æ¿ôÀ¸·Î º¯°æ)
+    // (3) TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL 
 
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     transitionImageLayout(texture_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     currentLayout_ = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
 
-    // º¹»ç°¡ ³¡³µÀ¸¹Ç·Î Staging Buffer´Â ÆÄ±«ÇÕ´Ï´Ù.
     vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
     vkFreeMemory(context->getDevice(), stagingBufferMemory, nullptr);
 
-    // ÀÌ¹ÌÁö ºä »ý¼º
-    // ¼ÎÀÌ´õ´Â VkImage°¡ ¾Æ´Ñ VkImageView¸¦ ÅëÇØ ÀÌ¹ÌÁö¿¡ Á¢±ÙÇÕ´Ï´Ù.
     textureView_ = createImageView(texture_, VK_FORMAT_R8G8B8A8_SRGB);
 
     createTextureSampler();
@@ -128,51 +253,49 @@ void Texture::initialize(const std::string& filepath) {
 
 
 void Texture::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-    // 1. ÀÌ¹ÌÁö »ý¼º Á¤º¸(CreateInfo) Á¤ÀÇ
+
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
-    imageInfo.extent.depth = 1; // 2D ÅØ½ºÃ³ÀÌ¹Ç·Î depth´Â 1
-    imageInfo.mipLevels = 1; // Áö±ÝÀº ¹Ó¸ÊÀ» »ç¿ëÇÏÁö ¾ÊÀ½
-    imageInfo.arrayLayers = 1; // ¹è¿­ ÅØ½ºÃ³°¡ ¾Æ´Ô
-    imageInfo.format = format; // ÀÌ¹ÌÁöÀÇ ÇÈ¼¿ Æ÷¸Ë (¿¹: RGBA)
-    imageInfo.tiling = tiling; // ÅØ¼¿ ¹èÄ¡ ¹æ½Ä (OptimalÀÌ GPU¿¡ ÃÖÀû)
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // ÃÊ±â ·¹ÀÌ¾Æ¿ôÀº ½Å°æ ¾²Áö ¾ÊÀ½
-    imageInfo.usage = usage; // ÀÌ¹ÌÁöÀÇ ¿ëµµ (¿¹: ÅØ½ºÃ³ »ùÇÃ¸µ, º¹»ç ´ë»ó)
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; // ¸ÖÆ¼»ùÇÃ¸µ »ç¿ë ¾È ÇÔ
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT; 
 
-    // 2. ÀÌ¹ÌÁö ÇÚµé »ý¼º
     if (vkCreateImage(context->getDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
     }
 
-    // 3. ÀÌ¹ÌÁö¿¡ ÇÊ¿äÇÑ ¸Þ¸ð¸® ¿ä±¸»çÇ× Äõ¸®
     VkMemoryRequirements memRequirements;
     vkGetImageMemoryRequirements(context->getDevice(), image, &memRequirements);
 
-    // 4. ¸Þ¸ð¸® ÇÒ´ç Á¤º¸(AllocateInfo) Á¤ÀÇ
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = context->findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    // 5. GPU ¸Þ¸ð¸® ÇÒ´ç
     if (vkAllocateMemory(context->getDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate image memory!");
     }
 
-    // 6. ÇÒ´çµÈ ¸Þ¸ð¸®¸¦ ÀÌ¹ÌÁö¿¡ ¹ÙÀÎµù(¿¬°á)
     vkBindImageMemory(context->getDevice(), image, imageMemory, 0);
 }
 
 void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-    // 1. ÀÏÈ¸¼º ÀÛ¾÷À» À§ÇÑ Ä¿¸Çµå ¹öÆÛ¸¦ ½ÃÀÛÇÕ´Ï´Ù.
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-    // 2. ÀÌ¹ÌÁö ¸Þ¸ð¸® Àåº®(Image Memory Barrier)À» ¼³Á¤ÇÕ´Ï´Ù.
+    if (oldLayout == newLayout)
+    {
+        return;
+    }
+
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = oldLayout;
@@ -198,56 +321,7 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // --- Ãß°¡: ATTACHMENT_OPTIMAL_KHR (ÅëÇÕ ¾îÅÂÄ¡¸ÕÆ®) ---
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
-        barrier.srcAccessMask = 0;
-        // ÄÃ·¯¿Í ±íÀÌ/½ºÅÙ½Ç ¸ðµÎ¿¡ ´ëÀÀÇÏµµ·Ï ¸¶½ºÅ© Á¶ÇÕ
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        // ·»´õ¸µ ½ÃÀÛ ½ÃÁ¡¿¡ ÇÊ¿äÇÑ ½ºÅ×ÀÌÁö ÁöÁ¤
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    // --- Ãß°¡: READ_ONLY_OPTIMAL_KHR (ÅëÇÕ ÀÐ±â Àü¿ë) ---
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // --- Ãß°¡: Attachment -> Read Only (·»´õ¸µ ÈÄ »ùÇÃ¸µ ÀüÈ¯) ---
-    else if (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else {
-        throw std::invalid_argument("unsupported layout transition!");
-    }
+    SetImageBarrier(barrier, sourceStage, destinationStage, currentLayout_, newLayout);
 
     vkCmdPipelineBarrier(
         commandBuffer,
@@ -262,10 +336,9 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
 }
 
 void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-    // 1. ÀÏÈ¸¼º ÀÛ¾÷À» À§ÇÑ Ä¿¸Çµå ¹öÆÛ¸¦ ½ÃÀÛÇÕ´Ï´Ù.
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-    // 2. º¹»çÇÒ ¿µ¿ª(Region)À» Á¤ÀÇÇÕ´Ï´Ù.
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(Region)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -279,8 +352,6 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
     region.imageOffset = { 0, 0, 0 };
     region.imageExtent = { width, height, 1 };
 
-    // 3. Ä¿¸Çµå ¹öÆÛ¿¡ ¹öÆÛ-ÀÌ¹ÌÁö º¹»ç ¸í·ÉÀ» ±â·ÏÇÕ´Ï´Ù.
-    //    ÀÌ¹ÌÁöÀÇ ·¹ÀÌ¾Æ¿ôÀº VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL »óÅÂ¿©¾ß ÇÕ´Ï´Ù.
     vkCmdCopyBufferToImage(
         commandBuffer,
         buffer,
@@ -290,7 +361,6 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
         &region
     );
 
-    // 4. Ä¿¸Çµå ¹öÆÛ ±â·ÏÀ» ¸¶Ä¡°í GPU¿¡ Á¦ÃâÇÏ¿© ½ÇÇàÇÕ´Ï´Ù.
     endSingleTimeCommands(commandBuffer);
 }
 
@@ -298,28 +368,23 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
 
 
 VkImageView Texture::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
-    // 1. ÀÌ¹ÌÁö ºä »ý¼º Á¤º¸(CreateInfo)¸¦ Á¤ÀÇÇÕ´Ï´Ù.
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image; // ºä¸¦ »ý¼ºÇÒ ´ë»ó ÀÌ¹ÌÁö
+    viewInfo.image = image;
 
-    // 2. ÀÌ¹ÌÁöÀÇ Å¸ÀÔÀ» ÁöÁ¤ÇÕ´Ï´Ù. (2D, 3D, Cubemap µî)
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = format; // ºä°¡ ÀÌ¹ÌÁö¸¦ ÇØ¼®ÇÒ ÇÈ¼¿ Æ÷¸Ë
+    viewInfo.format = format;
 
-    // 3. ÄÄÆ÷³ÍÆ® ¸ÅÇÎ(swizzling)À» ±âº»°ªÀ¸·Î ¼³Á¤ÇÕ´Ï´Ù.
-    // (¿¹: R Ã¤³ÎÀ» G Ã¤³Î·Î º¸ÀÌ°Ô ÇÏ´Â µîÀÇ ÀÛ¾÷À» ÇÏÁö ¾ÊÀ½)
     viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
-    // 4. ÀÌ¹ÌÁöÀÇ ¾î¶² ºÎºÐÀ» ºä°¡ ´Ù·êÁö Á¤ÀÇÇÕ´Ï´Ù. (Subresource Range)
-    viewInfo.subresourceRange.aspectMask = aspectFlags; // ÄÃ·¯ µ¥ÀÌÅÍ¸¦ ´Ù·ë
-    viewInfo.subresourceRange.baseMipLevel = 0; // ¹Ó¸Ê ·¹º§ 0ºÎÅÍ
-    viewInfo.subresourceRange.levelCount = 1;   // 1°³ÀÇ ¹Ó¸Ê ·¹º§À» ´Ù·ë
-    viewInfo.subresourceRange.baseArrayLayer = 0; // ¹è¿­ÀÇ Ã¹ ¹øÂ° ·¹ÀÌ¾îºÎÅÍ
-    viewInfo.subresourceRange.layerCount = 1;   // 1°³ÀÇ ·¹ÀÌ¾î¸¦ ´Ù·ë
+    viewInfo.subresourceRange.aspectMask = aspectFlags;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
 
     VkImageView imageView;
     if (vkCreateImageView(context->getDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
@@ -330,45 +395,31 @@ VkImageView Texture::createImageView(VkImage image, VkFormat format, VkImageAspe
 }
 
 void Texture::createTextureSampler() {
-    // 1. »ùÇÃ·¯ »ý¼º Á¤º¸(CreateInfo)¸¦ Á¤ÀÇÇÕ´Ï´Ù.
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 
-    // 2. ÇÊÅÍ¸µ(Filtering) ¼³Á¤: ÅØ½ºÃ³¸¦ È®´ë(mag)ÇÏ°Å³ª Ãà¼Ò(min)ÇÒ ¶§
-    //    ÇÈ¼¿ »ö»óÀ» ¾î¶»°Ô º¸°£ÇÒÁö °áÁ¤ÇÕ´Ï´Ù.
-    //    - VK_FILTER_LINEAR: ÁÖº¯ ÇÈ¼¿°ú ¼±Çü º¸°£ÇÏ¿© ºÎµå·´°Ô Ç¥ÇöÇÕ´Ï´Ù. (ÃßÃµ)
-    //    - VK_FILTER_NEAREST: °¡Àå °¡±î¿î ÇÈ¼¿ »ö»óÀ» ±×´ë·Î »ç¿ëÇÏ¿© ÇÈ¼¿ ¾ÆÆ®Ã³·³ º¸ÀÌ°Ô ÇÕ´Ï´Ù.
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
 
-    // 3. ÁÖ¼Ò ÁöÁ¤ ¸ðµå(Address Mode): UV ÁÂÇ¥°¡ [0, 1] ¹üÀ§¸¦ ¹þ¾î³¯ ¶§
-    //    ÅØ½ºÃ³¸¦ ¾î¶»°Ô Ã³¸®ÇÒÁö °áÁ¤ÇÕ´Ï´Ù.
-    //    - VK_SAMPLER_ADDRESS_MODE_REPEAT: ÅØ½ºÃ³¸¦ ¹ÙµÏÆÇ½ÄÀ¸·Î ¹Ýº¹ÇÕ´Ï´Ù. (ÀÏ¹ÝÀû)
-    //    - VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT: °Å¿ï¿¡ ºñÄ£ °ÍÃ³·³ ¹Ýº¹ÇÕ´Ï´Ù.
-    //    - VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE: °¡ÀåÀÚ¸® ÇÈ¼¿ »ö»óÀ» °è¼Ó »ç¿ëÇÕ´Ï´Ù.
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 
-    // 4. ºñµî¹æ¼º ÇÊÅÍ¸µ(Anisotropic Filtering) È°¼ºÈ­  anisotropia
-    //    ºñ½ºµëÇÑ °¢µµ¿¡¼­ ÅØ½ºÃ³¸¦ º¼ ¶§ Èå¸´ÇØÁö´Â Çö»óÀ» ÁÙ¿© Ä÷¸®Æ¼¸¦ Å©°Ô Çâ»ó½ÃÅµ´Ï´Ù.
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(context->getPhysicalDevice(), &properties);
 
     samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy; // GPU°¡ Áö¿øÇÏ´Â ÃÖ´ë°ª »ç¿ë
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 
-    // 5. ±âÅ¸ ¼³Á¤
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Clamp ¸ðµåÀÏ ¶§ÀÇ Å×µÎ¸® »ö»ó
-    samplerInfo.unnormalizedCoordinates = VK_FALSE; // UV ÁÂÇ¥¸¦ [0, 1]·Î Á¤±ÔÈ­ÇÏ¿© »ç¿ë
-    samplerInfo.compareEnable = VK_FALSE; // ±×¸²ÀÚ ¸Ê(PCF) °°Àº Æ¯¼ö ¿ëµµ°¡ ¾Æ´Ô
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 
-    // 6. ¹Ó¸Ê(Mipmap) °ü·Ã ¼³Á¤
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f; // Áö±ÝÀº ¹Ó¸ÊÀ» »ç¿ëÇÏÁö ¾ÊÀ¸¹Ç·Î ±âº»°ª ¼³Á¤
+    samplerInfo.maxLod = 0.0f;
 
     if (vkCreateSampler(context->getDevice(), &samplerInfo, nullptr, &textureSampler_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture sampler!");
@@ -377,7 +428,8 @@ void Texture::createTextureSampler() {
 
 void Texture::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
 {
-    imageInfo_.imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+    // VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL-> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
+    imageInfo_.imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
 
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -387,14 +439,13 @@ void Texture::populateWriteDescriptor(VkWriteDescriptorSet& writeInfo) const
 
 void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout newLayout)
 {
-    // ÇöÀç ·¹ÀÌ¾Æ¿ô°ú ¸ñÇ¥ ·¹ÀÌ¾Æ¿ôÀÌ °°À¸¸é ÀüÈ¯ÇÒ ÇÊ¿ä°¡ ¾ø½À´Ï´Ù.
     if (currentLayout_ == newLayout) {
         return;
     }
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = currentLayout_; // ÇöÀç ÀúÀåµÈ ·¹ÀÌ¾Æ¿ôÀ» »ç¿ë
+    barrier.oldLayout = currentLayout_;
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -404,10 +455,8 @@ void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout 
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    // ÀÌ¹ÌÁö Æ÷¸Ë¿¡ µû¶ó Aspect Mask¸¦ °áÁ¤ÇÕ´Ï´Ù.
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        // ½ºÅÙ½Ç Æ÷¸ËÀÎÁö È®ÀÎÇÏ´Â ÇïÆÛ ÇÔ¼ö°¡ ÀÖ´Ù°í °¡Á¤
         if (hasStencilComponent(format_)) {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
@@ -419,78 +468,7 @@ void Texture::transitionLayout_Cmd(VkCommandBuffer commandBuffer, VkImageLayout 
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
-    // ÀüÈ¯ À¯Çü¿¡ µû¶ó µ¿±âÈ­ ÆÄ¶ó¹ÌÅÍ¸¦ °áÁ¤ÇÕ´Ï´Ù.
-    // ÀÌ if-else Ã¼ÀÎÀº ÇÊ¿äÇÑ ¸¸Å­ È®ÀåµÉ ¼ö ÀÖ½À´Ï´Ù.
-    if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // --- Ãß°¡: ATTACHMENT_OPTIMAL_KHR (ÅëÇÕ ¾îÅÂÄ¡¸ÕÆ®) ---
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
-        barrier.srcAccessMask = 0;
-        // ÄÃ·¯¿Í ±íÀÌ ¸ðµÎ ´ëÀÀ °¡´ÉÇÏµµ·Ï ¸¶½ºÅ© Á¶ÇÕ
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    // --- Ãß°¡: READ_ONLY_OPTIMAL_KHR (ÅëÇÕ ÀÐ±â Àü¿ë) ---
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // --- Ãß°¡: Attachment -> Read Only ÀüÈ¯ (·»´õ¸µ ÈÄ »ùÇÃ¸µ¿ë) ---
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // --- Ãß°¡: Attachment -> Present (´ÙÀÌ³»¹Í ·»´õ¸µ ÈÄ Ãâ·Â) ---
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = 0;
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    }
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    }
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = 0;
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    }
-    else if (currentLayout_ == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    }
-    else {
-        throw std::invalid_argument("Unsupported layout transition provided!");
-    }
-
-    // Ä¿¸Çµå ¹öÆÛ¿¡ ÆÄÀÌÇÁ¶óÀÎ ¹è¸®¾î ¸í·ÉÀ» ±â·ÏÇÕ´Ï´Ù.
+    SetImageBarrier(barrier, sourceStage, destinationStage, currentLayout_, newLayout);
     vkCmdPipelineBarrier(
         commandBuffer,
         sourceStage,

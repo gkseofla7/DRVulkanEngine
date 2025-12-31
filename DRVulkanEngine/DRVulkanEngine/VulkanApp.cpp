@@ -27,7 +27,7 @@ VulkanApp::~VulkanApp()
     cleanup();
 }
 
-// VulkanApp Å¬·¡½º ±¸Çö
+// VulkanApp Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 void VulkanApp::run() {
     initWindow();
     initVulkan();
@@ -62,12 +62,12 @@ void VulkanApp::initVulkan() {
 
     loadAssets();
     descriptorPool_.initialize(&context_);
-	// Pipeline ÃÊ±âÈ­
+	// Pipeline ï¿½Ê±ï¿½È­
 	PipelineConfig pipelineConfig{};
 	pipelineConfig.pipelineName = "default";
 	pipelineConfig.vertexShaderPath = "shaders/shader.vert.spv";
 	pipelineConfig.fragmentShaderPath = "shaders/shader.frag.spv";
-    pipelineConfig.colorAttachmentFormat = sceneRenderTarget_.getColorFormat(); // ¿¹: R16G16B16A16_SFLOAT
+    pipelineConfig.colorAttachmentFormat = sceneRenderTarget_.getColorFormat(); // ï¿½ï¿½: R16G16B16A16_SFLOAT
     pipelineConfig.depthAttachmentFormat = sceneRenderTarget_.getDepthFormat();
 	defaultPipeline_.initialize(&context_, &swapChain_, &descriptorPool_, &shaderManager_, pipelineConfig);
 
@@ -77,7 +77,7 @@ void VulkanApp::initVulkan() {
     pipelineConfig.fragmentShaderPath = "shaders/skybox.frag.spv";
     pipelineConfig.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     pipelineConfig.cullMode = VK_CULL_MODE_FRONT_BIT;
-    pipelineConfig.colorAttachmentFormat = sceneRenderTarget_.getColorFormat(); // ¿¹: R16G16B16A16_SFLOAT
+    pipelineConfig.colorAttachmentFormat = sceneRenderTarget_.getColorFormat(); // ï¿½ï¿½: R16G16B16A16_SFLOAT
     pipelineConfig.depthAttachmentFormat = sceneRenderTarget_.getDepthFormat();
     skyboxPipeline_.initialize(&context_, &swapChain_, &descriptorPool_, &shaderManager_, pipelineConfig);
 
@@ -111,7 +111,7 @@ void VulkanApp::initVulkan() {
 	resources_["skyboxSampler"] = envCubemapTexture_.get();
 	resources_["hdrSceneTexture"] = sceneRenderTarget_.getColorTexture();
 
-	// Default Pipeline Descriptor Set »ý¼º
+	// Default Pipeline Descriptor Set ï¿½ï¿½ï¿½ï¿½
     {
         std::vector<DescriptorSet> descriptorSets;
 
@@ -135,7 +135,7 @@ void VulkanApp::initVulkan() {
         defaultPipeline_.setDescriptorSets(descriptorSets);
     }
 
-    // Skybox Pipeline Descriptor Set »ý¼º
+    // Skybox Pipeline Descriptor Set ï¿½ï¿½ï¿½ï¿½
     {
         std::vector<DescriptorSet> descriptorSets;
 
@@ -159,7 +159,7 @@ void VulkanApp::initVulkan() {
         skyboxPipeline_.setDescriptorSets(descriptorSets);
     }
 
-    // Tonemapping Pipeline Descriptor Set »ý¼º
+    // Tonemapping Pipeline Descriptor Set ï¿½ï¿½ï¿½ï¿½
     {
         std::vector<DescriptorSet> descriptorSets;
 
@@ -230,9 +230,6 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &imageBarrier);
-    // ====================================================================
-	// ·»´õ¸µ ÆÐ½º 1: Àå¸é ·»´õ¸µ
-    // ====================================================================
     {
         // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
         sceneRenderTarget_.getColorTexture()->transitionLayout_Cmd(
@@ -272,20 +269,14 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
         commandBuffer,
         VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
 
-    // ====================================================================
-    // ·»´õ¸µ ÆÐ½º 2: Åæ ¸ÅÇÎ
-    // ====================================================================
     {
-        // ·»´õ¸µ Á¤º¸¸¦ ÀÌÁ¦ swapChain_¿¡¼­ °¡Á®¿É´Ï´Ù.
         auto renderingInfo = swapChain_.getRenderingInfo(imageIndex);
-        renderingInfo.pDepthAttachment = nullptr; // Åæ ¸ÅÇÎÀº ±íÀÌ ¹öÆÛ°¡ ÇÊ¿ä ¾ø½À´Ï´Ù.
+        renderingInfo.pDepthAttachment = nullptr;
 
         vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-        // Åæ ¸ÅÇÎ¿ë ÆÄÀÌÇÁ¶óÀÎ°ú µð½ºÅ©¸³ÅÍ ¼Â ¹ÙÀÎµù
         tonemappingPipeline_.bindPipeline(commandBuffer);
 
-        // tonemapping.frag¿¡¼­ exposure ±â´ëÇÏÁö¸¸ Àü´Þ ¾ÈµÊ
         //struct PushConstants { float exposure; } pushConstants;
         vkCmdPushConstants(commandBuffer, tonemappingPipeline_.getPipelineLayout(),
                           VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float), &hdrExposure);
@@ -295,8 +286,6 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
         vkCmdEndRendering(commandBuffer);
     }
 
-
-    // ÀÌ¹ÌÁö ·¹ÀÌ¾Æ¿ô ÀüÈ¯ (COLOR_ATTACHMENT_OPTIMAL -> PRESENT_SRC)
     // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL -> VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -358,7 +347,7 @@ void VulkanApp::mainLoop() {
         float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // Ä«¸Þ¶ó ÀÔ·Â Ã³¸®
+        // Ä«ï¿½Þ¶ï¿½ ï¿½Ô·ï¿½ Ã³ï¿½ï¿½
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             camera_->processKeyboard(Camera_Movement::FORWARD, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -367,11 +356,8 @@ void VulkanApp::mainLoop() {
             camera_->processKeyboard(Camera_Movement::LEFT, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
             camera_->processKeyboard(Camera_Movement::RIGHT, deltaTime);
-
-        // HDR ÀÔ·Â Ã³¸®
         handleHDRInput();
 
-        // ¸¶¿ì½º Ä¿¼­ Á¦¾î
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -402,9 +388,9 @@ void VulkanApp::cleanup() {
 
 void VulkanApp::update()
 {
-	float dt = 0.016f; // °íÁ¤µÈ µ¨Å¸ Å¸ÀÓ (¾à 60 FPS)
+	float dt = 0.016f; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å¸ Å¸ï¿½ï¿½ (ï¿½ï¿½ 60 FPS)
 
-    // TODO. ½Ã°£Â÷ »ý¼ºÀ» À§ÇÑ ÀÓ½Ã ÄÚµå, Á¦°Å ¿¹Á¤
+    // TODO. ï¿½Ã°ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ó½ï¿½ ï¿½Úµï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     static int count = 2;
 	static float totalTime = 0.0f;
 	float checkTime[2] = { 0.0f, 0.0f };
@@ -416,7 +402,8 @@ void VulkanApp::update()
         modelConfig.type = ModelType::FromFile;
         modelConfig.modelDirectory = "../assets/models/mouseModel";
         modelConfig.modelFilename = "mouseModel.fbx";
-        modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
+        //modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
+        modelConfig.animationFilenames.push_back("mouseModelAnim.fbx");
         models_.push_back(Model(&context_, modelConfig));
         models_.back().prepareBindless(modelUbArray_, materialUbArray_, boneUbArray_, textureArray_);
     }
@@ -509,7 +496,7 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
     uboScene.lightPos = glm::vec3(0.0, 10.0, 0.0);
     uboScene.viewPos = camera_->getPosition();
     
-    // HDR °ü·Ã ÆÄ¶ó¹ÌÅÍ ¾÷µ¥ÀÌÆ®
+    // HDR ï¿½ï¿½ï¿½ï¿½ ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
     uboScene.exposure = hdrExposure;
     uboScene.gamma = hdrGamma;
     uboScene.maxWhite = hdrMaxWhite;
@@ -531,7 +518,8 @@ void VulkanApp::loadAssets() {
 	modelConfig.type = ModelType::FromFile;
 	modelConfig.modelDirectory = "../assets/models/mouseModel";
 	modelConfig.modelFilename = "mouseModel.fbx";
-    modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
+    //modelConfig.animationFilenames.push_back("Hip Hop Dancing_cleaned.fbx");
+    modelConfig.animationFilenames.push_back("mouseModelAnim.fbx");
 	models_.push_back(Model(&context_, modelConfig));
 
     for(Model& model : models_)
@@ -545,14 +533,15 @@ void VulkanApp::loadAssets() {
     defaultTexture_ = std::make_unique<Texture>(&context_, "../assets/images/minion.jpg");
     textureArray_.addDefaultTexture(defaultTexture_.get());
 
-    // HDR È¯°æ¸Ê ·Îµå - ´õ Å« ÇØ»óµµ·Î °³¼±
+    // HDR È¯ï¿½ï¿½ï¿½ ï¿½Îµï¿½ - ï¿½ï¿½ Å« ï¿½Ø»óµµ·ï¿½ ï¿½ï¿½ï¿½ï¿½
     envCubemapTexture_ = std::make_unique<CubemapTexture>(
         &context_,
-        "../assets/hdri/bryanston_park_sunrise_4k.hdr",
-        1024  // ´õ ³ôÀº ÇØ»óµµ·Î º¯°æ (512 -> 1024)
+        "../assets/hdri/german_town_street_4k.hdr",
+        //"../assets/hdri/bryanston_park_sunrise_4k.hdr",
+        1024
     );
 
-    // HDR Áö¿ø ¿©ºÎ È®ÀÎ ¹× ·Î±×
+    // HDR ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ ï¿½Î±ï¿½
     std::cout << "HDR Environment map loaded: " << "../assets/hdri/german_town_street_4k.hdr" << std::endl;
 
     ModelConfig skyboxModelConfig{};
@@ -565,7 +554,7 @@ void VulkanApp::mousecallback(GLFWwindow* window, double xposIn, double yposIn)
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
-    // Ã³À½ ÄÝ¹éÀÌ È£ÃâµÉ ¶§´Â lastX, lastY¸¦ ÇöÀç ¸¶¿ì½º À§Ä¡·Î ¼³Á¤
+    // Ã³ï¿½ï¿½ ï¿½Ý¹ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ lastX, lastYï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ì½º ï¿½ï¿½Ä¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (firstMouse)
     {
         lastX = xpos;
@@ -573,16 +562,16 @@ void VulkanApp::mousecallback(GLFWwindow* window, double xposIn, double yposIn)
         firstMouse = false;
     }
 
-    // ÀÌÀü ÇÁ·¹ÀÓ°ú ÇöÀç ÇÁ·¹ÀÓÀÇ ¸¶¿ì½º À§Ä¡ Â÷ÀÌ¸¦ °è»ê
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ó°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ì½º ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // Y ÁÂÇ¥´Â È­¸é À§ÂÊÀ¸·Î °¥¼ö·Ï °ªÀÌ ÀÛ¾ÆÁö¹Ç·Î ¹Ý´ë·Î °è»ê
+    float yoffset = lastY - ypos; // Y ï¿½ï¿½Ç¥ï¿½ï¿½ È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Û¾ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ ï¿½Ý´ï¿½ï¿½ ï¿½ï¿½ï¿½
 
-    // ´ÙÀ½ ÇÁ·¹ÀÓÀ» À§ÇØ ÇöÀç À§Ä¡¸¦ ÀúÀå
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     lastX = xpos;
     lastY = ypos;
 
     
-    // glfwGetMouseButton ÇÔ¼ö·Î ÇöÀç ¸¶¿ì½º ¹öÆ° »óÅÂ¸¦ °¡Á®¿Ã ¼ö ÀÖ½À´Ï´Ù.
+    // glfwGetMouseButton ï¿½Ô¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ì½º ï¿½ï¿½Æ° ï¿½ï¿½ï¿½Â¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö½ï¿½ï¿½Ï´ï¿½.
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
     {
         camera_->processMouseMovement(xoffset, yoffset);
@@ -590,7 +579,6 @@ void VulkanApp::mousecallback(GLFWwindow* window, double xposIn, double yposIn)
 }
 
 void VulkanApp::staticMouseCallback(GLFWwindow* window, double xposIn, double yposIn) {
-    // 1. Ã¢¿¡ µî·ÏµÈ 'Áý ÁÖ¼Ò'(this Æ÷ÀÎÅÍ)¸¦ °¡Á®¿É´Ï´Ù.
     auto* app = static_cast<VulkanApp*>(glfwGetWindowUserPointer(window));
 
     if (app) {
@@ -599,7 +587,6 @@ void VulkanApp::staticMouseCallback(GLFWwindow* window, double xposIn, double yp
 }
 
 void VulkanApp::handleHDRInput() {
-    // HDR ³ëÃâ°ª Á¶Á¤ (Q/E Å°)
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
         hdrExposure -= 0.02f;
         if (hdrExposure < 0.1f) hdrExposure = 0.1f;
@@ -611,7 +598,6 @@ void VulkanApp::handleHDRInput() {
         std::cout << "HDR Exposure: " << hdrExposure << std::endl;
     }
 
-    // °¨¸¶ Á¶Á¤ (R/T Å°)
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
         hdrGamma -= 0.01f;
         if (hdrGamma < 1.0f) hdrGamma = 1.0f;
@@ -623,7 +609,6 @@ void VulkanApp::handleHDRInput() {
         std::cout << "HDR Gamma: " << hdrGamma << std::endl;
     }
 
-    // Åæ¸ÊÇÎ ¸ðµå º¯°æ (1,2,3,4 Å°)
     static bool key1Pressed = false, key2Pressed = false, key3Pressed = false, key4Pressed = false;
     
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && !key1Pressed) {

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <vector>
 
-// STB ÀÌ¹ÌÁö ·Î´õ (HDR Áö¿ø) - IMPLEMENTATIONÀº Á¦°Å
+// STB ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½Î´ï¿½ (HDR ï¿½ï¿½ï¿½ï¿½) - IMPLEMENTATIONï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 #include <stb_image.h>
 
 #ifndef M_PI
@@ -24,7 +24,7 @@ CubemapTexture::CubemapTexture(const VulkanContext* context, const std::string& 
 }
 
 CubemapTexture::CubemapTexture(const VulkanContext* context, const std::array<std::string, 6>& cubeFaces)
-    : cubemapSize_(512) // ±âº» Å©±â
+    : cubemapSize_(512) // ï¿½âº» Å©ï¿½ï¿½
 {
     this->context = context;
     createFromSixImages(cubeFaces);
@@ -40,7 +40,7 @@ CubemapTexture::~CubemapTexture() {
 }
 
 void CubemapTexture::createFromHDR(const std::string& hdrFilePath, uint32_t cubemapSize) {
-    // HDR ÀÌ¹ÌÁö ·Îµå (32-bit float)
+    // HDR ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½Îµï¿½ (32-bit float)
     int hdrWidth, hdrHeight, hdrChannels;
     float* hdrData = stbi_loadf(hdrFilePath.c_str(), &hdrWidth, &hdrHeight, &hdrChannels, 4);
     
@@ -49,19 +49,19 @@ void CubemapTexture::createFromHDR(const std::string& hdrFilePath, uint32_t cube
     }
 
     try {
-        // Å¥ºê¸Ê ÀÌ¹ÌÁö »ý¼º
+        // Å¥ï¿½ï¿½ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         createCubemapImage(cubemapSize, cubemapSize, VK_FORMAT_R32G32B32A32_SFLOAT,
                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        // HDRÀ» Å¥ºê¸ÊÀ¸·Î º¯È¯
+        // HDRï¿½ï¿½ Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯
         convertEquirectangularToCubemap(hdrData, hdrWidth, hdrHeight, cubemapSize);
 
-        // ÀÌ¹ÌÁö ºä¿Í »ùÇÃ·¯ »ý¼º
+        // ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã·ï¿½ ï¿½ï¿½ï¿½ï¿½
         createCubemapImageView(VK_FORMAT_R32G32B32A32_SFLOAT);
         createCubemapSampler();
 
-        // Descriptor Á¤º¸ ¼³Á¤
+        // Descriptor ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
         imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
         imageInfo_.imageView = cubemapView_;
@@ -76,7 +76,7 @@ void CubemapTexture::createFromHDR(const std::string& hdrFilePath, uint32_t cube
 }
 
 void CubemapTexture::createFromSixImages(const std::array<std::string, 6>& cubeFaces) {
-    // Ã¹ ¹øÂ° ÀÌ¹ÌÁö·Î Å©±â °áÁ¤
+    // Ã¹ ï¿½ï¿½Â° ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     int width, height, channels;
     unsigned char* testImage = stbi_load(cubeFaces[0].c_str(), &width, &height, &channels, 4);
     if (!testImage) {
@@ -84,14 +84,14 @@ void CubemapTexture::createFromSixImages(const std::array<std::string, 6>& cubeF
     }
     stbi_image_free(testImage);
     
-    cubemapSize_ = width; // Á¤»ç°¢ÇüÀÌ¶ó°í °¡Á¤
+    cubemapSize_ = width; // ï¿½ï¿½ï¿½ç°¢ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    // Å¥ºê¸Ê ÀÌ¹ÌÁö »ý¼º
+    // Å¥ï¿½ï¿½ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     createCubemapImage(cubemapSize_, cubemapSize_, VK_FORMAT_R8G8B8A8_SRGB,
                       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    // ½ºÅ×ÀÌÂ¡ ¹öÆÛ »ý¼º
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     VkDeviceSize imageSize = cubemapSize_ * cubemapSize_ * 4; // RGBA
     VkDeviceSize totalSize = imageSize * CUBE_FACES;
 
@@ -104,7 +104,7 @@ void CubemapTexture::createFromSixImages(const std::array<std::string, 6>& cubeF
                 stagingBuffer,
                 stagingBufferMemory);
 
-    // °¢ Å¥ºê ÆäÀÌ½º ·Îµå ¹× ½ºÅ×ÀÌÂ¡ ¹öÆÛ¿¡ º¹»ç
+    // ï¿½ï¿½ Å¥ï¿½ï¿½ ï¿½ï¿½ï¿½Ì½ï¿½ ï¿½Îµï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½Û¿ï¿½ ï¿½ï¿½ï¿½ï¿½
     void* data;
     vkMapMemory(context->getDevice(), stagingBufferMemory, 0, totalSize, 0, &data);
 
@@ -122,21 +122,21 @@ void CubemapTexture::createFromSixImages(const std::array<std::string, 6>& cubeF
 
     vkUnmapMemory(context->getDevice(), stagingBufferMemory);
 
-    // ÀÌ¹ÌÁö ·¹ÀÌ¾Æ¿ô ÀüÈ¯ ¹× µ¥ÀÌÅÍ º¹»ç
+    // ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾Æ¿ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToCubemap(stagingBuffer, cubemapSize_, cubemapSize_, false); // LDR ÀÌ¹ÌÁö
+    copyBufferToCubemap(stagingBuffer, cubemapSize_, cubemapSize_, false); // LDR ï¿½Ì¹ï¿½ï¿½ï¿½
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
 
-    // ½ºÅ×ÀÌÂ¡ ¹öÆÛ Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
     vkFreeMemory(context->getDevice(), stagingBufferMemory, nullptr);
 
-    // ÀÌ¹ÌÁö ºä¿Í »ùÇÃ·¯ »ý¼º
+    // ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã·ï¿½ ï¿½ï¿½ï¿½ï¿½
     createCubemapImageView(VK_FORMAT_R8G8B8A8_SRGB);
     createCubemapSampler();
 
-    // Descriptor Á¤º¸ ¼³Á¤
+    // Descriptor ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     imageInfo_.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
     imageInfo_.imageView = cubemapView_;
@@ -144,35 +144,35 @@ void CubemapTexture::createFromSixImages(const std::array<std::string, 6>& cubeF
 }
 
 void CubemapTexture::convertEquirectangularToCubemap(float* hdrData, int hdrWidth, int hdrHeight, uint32_t cubemapSize) {
-    // Å¥ºê¸Ê µ¥ÀÌÅÍ¸¦ À§ÇÑ ¸Þ¸ð¸® ÇÒ´ç
+    // Å¥ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Þ¸ï¿½ ï¿½Ò´ï¿½
     const size_t faceSize = cubemapSize * cubemapSize * 4 * sizeof(float); // RGBA32F
     const size_t totalSize = faceSize * CUBE_FACES;
     
     std::vector<float> cubemapData(totalSize / sizeof(float));
     
-    // °¢ Å¥ºê ÆäÀÌ½º »ý¼º
+    // ï¿½ï¿½ Å¥ï¿½ï¿½ ï¿½ï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½
     for (int face = 0; face < CUBE_FACES; ++face) {
         float* faceData = &cubemapData[face * cubemapSize * cubemapSize * 4];
         
         for (uint32_t y = 0; y < cubemapSize; ++y) {
             for (uint32_t x = 0; x < cubemapSize; ++x) {
-                // UV ÁÂÇ¥ °è»ê (0-1 ¹üÀ§¸¦ -1 to +1·Î º¯È¯)
+                // UV ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½ (0-1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -1 to +1ï¿½ï¿½ ï¿½ï¿½È¯)
                 float u = (2.0f * (x + 0.5f) / cubemapSize) - 1.0f;
                 float v = (2.0f * (y + 0.5f) / cubemapSize) - 1.0f;
                 
-                // Å¥ºê ÆäÀÌ½º¿¡¼­ÀÇ 3D ¹æÇâ º¤ÅÍ °è»ê
+                // Å¥ï¿½ï¿½ ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 3D ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
                 float dirX, dirY, dirZ;
                 getCubeFaceDirection(face, u, v, dirX, dirY, dirZ);
                 
-                // ±¸¸é ÁÂÇ¥·Î º¯È¯
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ ï¿½ï¿½È¯
                 float theta = atan2f(dirZ, dirX);
                 float phi = asinf(dirY);
                 
-                // ±¸¸é ÁÂÇ¥¸¦ equirectangular UV·Î º¯È¯
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ï¿½ï¿½ equirectangular UVï¿½ï¿½ ï¿½ï¿½È¯
                 float hdrU = (theta + (float)M_PI) / (2.0f * (float)M_PI);
                 float hdrV = (phi + (float)M_PI / 2.0f) / (float)M_PI;
                 
-                // HDR ÀÌ¹ÌÁö¿¡¼­ ÇÈ¼¿ »ùÇÃ¸µ (bilinear interpolation)
+                // HDR ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ ï¿½ï¿½ï¿½Ã¸ï¿½ (bilinear interpolation)
                 float hdrX = hdrU * (hdrWidth - 1);
                 float hdrY = hdrV * (hdrHeight - 1);
                 
@@ -184,7 +184,7 @@ void CubemapTexture::convertEquirectangularToCubemap(float* hdrData, int hdrWidt
                 float fx = hdrX - x0;
                 float fy = hdrY - y0;
                 
-                // 4°³ ÀÎÁ¢ ÇÈ¼¿¿¡¼­ º¸°£
+                // 4ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
                 for (int c = 0; c < 4; ++c) {
                     float p00 = hdrData[(y0 * hdrWidth + x0) * 4 + c];
                     float p01 = hdrData[(y0 * hdrWidth + x1) * 4 + c];
@@ -201,7 +201,7 @@ void CubemapTexture::convertEquirectangularToCubemap(float* hdrData, int hdrWidt
         }
     }
     
-    // ½ºÅ×ÀÌÂ¡ ¹öÆÛ »ý¼º ¹× µ¥ÀÌÅÍ º¹»ç
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     
@@ -216,13 +216,13 @@ void CubemapTexture::convertEquirectangularToCubemap(float* hdrData, int hdrWidt
     memcpy(data, cubemapData.data(), totalSize);
     vkUnmapMemory(context->getDevice(), stagingBufferMemory);
 
-    // ÀÌ¹ÌÁö ·¹ÀÌ¾Æ¿ô ÀüÈ¯ ¹× µ¥ÀÌÅÍ º¹»ç
+    // ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾Æ¿ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToCubemap(stagingBuffer, cubemapSize, cubemapSize, true); // HDR ÀÌ¹ÌÁö
+    copyBufferToCubemap(stagingBuffer, cubemapSize, cubemapSize, true); // HDR ï¿½Ì¹ï¿½ï¿½ï¿½
     // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR
     transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR);
 
-    // ½ºÅ×ÀÌÂ¡ ¹öÆÛ Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
     vkFreeMemory(context->getDevice(), stagingBufferMemory, nullptr);
 }
@@ -261,7 +261,7 @@ void CubemapTexture::getCubeFaceDirection(int face, float u, float v, float& x, 
             break;
     }
     
-    // Á¤±ÔÈ­
+    // ï¿½ï¿½ï¿½ï¿½È­
     float length = sqrtf(x * x + y * y + z * z);
     x /= length;
     y /= length;
@@ -272,13 +272,13 @@ void CubemapTexture::createCubemapImage(uint32_t width, uint32_t height, VkForma
                                        VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Å¥ºê¸Ê ÇÃ·¡±× Áß¿ä!
+    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Å¥ï¿½ï¿½ï¿½ ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ß¿ï¿½!
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 6; // Å¥ºê¸ÊÀº 6°³ ·¹ÀÌ¾î
+    imageInfo.arrayLayers = 6; // Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ 6ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾ï¿½
     imageInfo.format = format;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -309,7 +309,7 @@ void CubemapTexture::createCubemapImageView(VkFormat format) {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = cubemapImage_;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE; // Å¥ºê¸Ê ºä Å¸ÀÔ
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE; // Å¥ï¿½ï¿½ï¿½ ï¿½ï¿½ Å¸ï¿½ï¿½
     viewInfo.format = format;
     viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -319,7 +319,7 @@ void CubemapTexture::createCubemapImageView(VkFormat format) {
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 6; // 6°³ ·¹ÀÌ¾î ¸ðµÎ
+    viewInfo.subresourceRange.layerCount = 6; // 6ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½
 
     if (vkCreateImageView(context->getDevice(), &viewInfo, nullptr, &cubemapView_) != VK_SUCCESS) {
         throw std::runtime_error("failed to create cubemap image view!");
@@ -331,7 +331,7 @@ void CubemapTexture::createCubemapSampler() {
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // Å¥ºê¸ÊÀº clamp ±ÇÀå
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ clamp ï¿½ï¿½ï¿½ï¿½
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
@@ -368,7 +368,7 @@ void CubemapTexture::transitionImageLayout(VkImageLayout oldLayout, VkImageLayou
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 6; // 6°³ ·¹ÀÌ¾î ¸ðµÎ
+    barrier.subresourceRange.layerCount = 6; // 6ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½
 
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
@@ -385,22 +385,22 @@ void CubemapTexture::transitionImageLayout(VkImageLayout oldLayout, VkImageLayou
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
-    // 1. ÃÊ±âÈ­ -> ÅëÇÕ ¾îÅÂÄ¡¸ÕÆ® (Dynamic Rendering¿ë)
+    // 1. ï¿½Ê±ï¿½È­ -> ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½Æ® (Dynamic Renderingï¿½ï¿½)
     else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
         barrier.srcAccessMask = 0;
-        // ÄÃ·¯¿Í ±íÀÌ/½ºÅÙ½Ç ¸ðµÎ¿¡ ´ëÀÀÇÒ ¼ö ÀÖµµ·Ï ºñÆ® Á¶ÇÕ
+        // ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½Ù½ï¿½ ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Öµï¿½ï¿½ï¿½ ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½
         barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
-    // 2. º¹»ç ¿Ï·á -> ÅëÇÕ ÀÐ±â Àü¿ë (»ùÇÃ¸µ, ÀÔ·Â Ã·ºÎ¹° µî)
+    // 2. ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½ -> ï¿½ï¿½ï¿½ï¿½ ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½Ã¸ï¿½, ï¿½Ô·ï¿½ Ã·ï¿½Î¹ï¿½ ï¿½ï¿½)
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
-    // 3. ·»´õ¸µ ¿Ï·á(Attachment) -> ´ÙÀ½ ÆÐ½º¿¡¼­ ÀÐ±â(Read Only)
+    // 3. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½(Attachment) -> ï¿½ï¿½ï¿½ï¿½ ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ð±ï¿½(Read Only)
     else if (oldLayout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && newLayout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR) {
         barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;

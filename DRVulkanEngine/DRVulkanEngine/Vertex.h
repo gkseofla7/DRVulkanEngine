@@ -7,13 +7,13 @@
 #define MAX_BONE_INFLUENCE 4
 
 struct Vertex {
-    glm::vec3 pos;      // À§Ä¡ (Position)
-    glm::vec3 normal;   // ¹ý¼± (Normal) - Á¶¸í °è»ê¿ë
-    glm::vec2 texCoord; // ÅØ½ºÃ³ ÁÂÇ¥ (UV)
+    glm::vec3 pos;
+    glm::vec3 normal;
+    glm::vec2 texCoord;
     glm::vec3 tangent;
     glm::vec3 bitangent;
 
-    // --- ½ºÄÌ·¹Å» ¾Ö´Ï¸ÞÀÌ¼Ç µ¥ÀÌÅÍ ---
+    // --- ï¿½ï¿½ï¿½Ì·ï¿½Å» ï¿½Ö´Ï¸ï¿½ï¿½Ì¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---
     int boneIDs[MAX_BONE_INFLUENCE];
     float weights[MAX_BONE_INFLUENCE];
 

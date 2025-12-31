@@ -66,6 +66,7 @@ class ShaderCompilerHandler(FileSystemEventHandler):
                 cmd = [self.compiler_path, '-V', str(shader_path), '-o', str(output_path), '--target-env', 'vulkan1.3']
                 if self.debug_mode:
                     # 매뉴얼 핵심: Nsight Flame Graph 및 심볼 로드를 위해 -gVS 사용
+                    cmd.append('-g')
                     cmd.append('-gVS') 
                 if self.optimize_mode:
                     # 최적화가 필요할 경우 (보통 디버그 시에는 제외)

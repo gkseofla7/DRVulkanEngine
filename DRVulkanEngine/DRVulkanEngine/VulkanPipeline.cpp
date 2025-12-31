@@ -10,7 +10,7 @@
 #include "DescriptorPool.h"
 #include "DescriptorSet.h"
 #include "GlobalData.h"
-// Vertex ±¸Á¶Ã¼ ±¸Çö (VulkanApp.cpp¿¡¼­ ÀÌµ¿)
+// Vertex ï¿½ï¿½ï¿½ï¿½Ã¼ ï¿½ï¿½ï¿½ï¿½ (VulkanApp.cppï¿½ï¿½ï¿½ï¿½ ï¿½Ìµï¿½)
 
 
 VulkanPipeline::~VulkanPipeline() {
@@ -23,7 +23,7 @@ VulkanPipeline::VulkanPipeline(VulkanPipeline&& other) noexcept
     , context_(other.context_)
     , swapChain_(other.swapChain_) {
     
-    // ÀÌµ¿µÈ °´Ã¼ÀÇ ÇÚµéµéÀ» ¹«È¿È­
+    // ï¿½Ìµï¿½ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½Úµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¿È­
     other.pipelineLayout_ = VK_NULL_HANDLE;
     other.graphicsPipeline = VK_NULL_HANDLE;
     other.context_ = nullptr;
@@ -72,21 +72,21 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
         shaderStages.push_back(shader->stageInfo_);
     }
 ////////////////////////////////////
-    // TODO. ÀÓ½Ã Å×½ºÆ®¿ë ÄÚµå
+    // TODO. ï¿½Ó½ï¿½ ï¿½×½ï¿½Æ®ï¿½ï¿½ ï¿½Úµï¿½
     struct SpecializationData {
-        VkBool32 useBDA; // 0 (false) ¶Ç´Â 1 (true)
+        VkBool32 useBDA; // 0 (false) ï¿½Ç´ï¿½ 1 (true)
     };
 
     SpecializationData specData;
-    specData.useBDA = USE_BDA_BUFFER? VK_TRUE : VK_FALSE; // ¶Ç´Â VK_FALSE·Î °áÁ¤
+    specData.useBDA = USE_BDA_BUFFER? VK_TRUE : VK_FALSE; // ï¿½Ç´ï¿½ VK_FALSEï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-    // 2. ¼ÎÀÌ´õÀÇ ¾î¶² »ó¼ö¿Í ¸ÅÇÎÇÒÁö Á¤ÀÇ
+    // 2. ï¿½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ ï¿½î¶² ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     VkSpecializationMapEntry entry{};
-    entry.constantID = 0;        // GLSLÀÇ constant_id = 0°ú ¸ÅÄ¡
-    entry.offset = 0;            // specData ±¸Á¶Ã¼ ³»ÀÇ ¿ÀÇÁ¼Â
+    entry.constantID = 0;        // GLSLï¿½ï¿½ constant_id = 0ï¿½ï¿½ ï¿½ï¿½Ä¡
+    entry.offset = 0;            // specData ï¿½ï¿½ï¿½ï¿½Ã¼ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     entry.size = sizeof(VkBool32);
 
-    // 3. ½ºÆä¼È¶óÀÌÁ¦ÀÌ¼Ç Á¤º¸ ÅëÇÕ
+    // 3. ï¿½ï¿½ï¿½ï¿½È¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     VkSpecializationInfo specInfo{};
     specInfo.mapEntryCount = 1;
     specInfo.pMapEntries = &entry;
@@ -96,14 +96,14 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     shaderStages[0].pSpecializationInfo = &specInfo;
 ////////////////////////////////////
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // ¹Ù±ù¿¡ ¼±¾ð
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // ï¿½Ù±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     if (config_.useVertexInput) {
-        // ±âÁ¸ ·ÎÁ÷: 3D ¸ðµ¨¿ë ÆÄÀÌÇÁ¶óÀÎÀº Á¤Á¡ ÀÔ·ÂÀ» ¼³Á¤ÇÕ´Ï´Ù.
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: 3D ï¿½ðµ¨¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
         vertexInputInfo = createVertexInputState();
     }
     else {
-        // Åæ ¸ÅÇÎ¿ë ÆÄÀÌÇÁ¶óÀÎÀº ºó Á¤Á¡ ÀÔ·Â »óÅÂ¸¦ ¼³Á¤ÇÕ´Ï´Ù.
-        // "¹öÅØ½º ¹öÆÛ¿¡¼­ ¾Æ¹«°Íµµ ÀÐÁö ¾Ê°Ú´Ù"´Â ÀÇ¹ÌÀÔ´Ï´Ù.
+        // ï¿½ï¿½ ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½Â¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½.
+        // "ï¿½ï¿½ï¿½Ø½ï¿½ ï¿½ï¿½ï¿½Û¿ï¿½ï¿½ï¿½ ï¿½Æ¹ï¿½ï¿½Íµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ê°Ú´ï¿½"ï¿½ï¿½ ï¿½Ç¹ï¿½ï¿½Ô´Ï´ï¿½.
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.vertexBindingDescriptionCount = 0;
         vertexInputInfo.pVertexBindingDescriptions = nullptr;
@@ -122,7 +122,7 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     auto colorBlending = createColorBlendState(colorBlendAttachment);
 
-    // Depth Stencil State Ãß°¡
+    // Depth Stencil State ï¿½ß°ï¿½
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
     depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilInfo.depthTestEnable = VK_TRUE;
@@ -131,16 +131,16 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.stencilTestEnable = VK_FALSE;
     
-    // Pipeline Layout »ý¼º
+    // Pipeline Layout ï¿½ï¿½ï¿½ï¿½
     createPipelineLayout(shaders);
 
-    // Dynamic RenderingÀ» À§ÇÑ Pipeline Rendering Create Info
+    // Dynamic Renderingï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Pipeline Rendering Create Info
     auto pipelineRenderingCreateInfo = createDynamicRenderingInfo();
 
-    // Graphics Pipeline »ý¼º
+    // Graphics Pipeline ï¿½ï¿½ï¿½ï¿½
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = &pipelineRenderingCreateInfo; // Dynamic Rendering Á¤º¸ ¿¬°á
+    pipelineInfo.pNext = &pipelineRenderingCreateInfo; // Dynamic Rendering ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
     pipelineInfo.pStages = shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
@@ -149,9 +149,9 @@ void VulkanPipeline::createGraphicsPipeline(const std::vector<Shader*> shaders){
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &depthStencilInfo; // Depth Stencil State Ãß°¡
+    pipelineInfo.pDepthStencilState = &depthStencilInfo; // Depth Stencil State ï¿½ß°ï¿½
     pipelineInfo.layout = pipelineLayout_;
-    pipelineInfo.renderPass = VK_NULL_HANDLE; // Dynamic Rendering¿¡¼­´Â null
+    pipelineInfo.renderPass = VK_NULL_HANDLE; // Dynamic Renderingï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ null
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.pNext = &pipelineRenderingCreateInfo;
@@ -224,7 +224,7 @@ void VulkanPipeline::createPipelineLayout(const std::vector<Shader*> shaders) {
 
 
 void VulkanPipeline::recreate() {
-    // ±âÁ¸ Pipeline Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ Pipeline ï¿½ï¿½ï¿½ï¿½
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(context_->getDevice(), graphicsPipeline, nullptr);
         graphicsPipeline = VK_NULL_HANDLE;
@@ -271,14 +271,14 @@ void VulkanPipeline::bindPipeline(VkCommandBuffer commandBuffer)
         descriptorSets.push_back(ds.getHandle());
     }
     vkCmdBindDescriptorSets(
-        commandBuffer,                      // ÇöÀç ±â·Ï ÁßÀÎ Ä¿¸Çµå ¹öÆÛ
-        VK_PIPELINE_BIND_POINT_GRAPHICS,    // ±×·¡ÇÈ½º ÆÄÀÌÇÁ¶óÀÎ¿¡ ¹ÙÀÎµù
-        pipelineLayout_,                     // ÆÄÀÌÇÁ¶óÀÎ »ý¼º ½Ã »ç¿ëÇÑ ·¹ÀÌ¾Æ¿ô
-        0,                                  // ¹ÙÀÎµùÇÒ Ã¹ ¹øÂ° descriptor set ¹øÈ£ (set = 0)
-        descriptorSets.size(),                                  // ¹ÙÀÎµùÇÒ descriptor setÀÇ °³¼ö
-        descriptorSets.data(),                     // ¹ÙÀÎµùÇÒ descriptor set ÇÚµéÀÇ ¹è¿­ Æ÷ÀÎÅÍ
-        0,                                  // µ¿Àû ¿ÀÇÁ¼Â °³¼ö (¾øÀ¸¸é 0)
-        nullptr                             // µ¿Àû ¿ÀÇÁ¼Â ¹è¿­ Æ÷ÀÎÅÍ (¾øÀ¸¸é nullptr)
+        commandBuffer,                      // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ä¿ï¿½Çµï¿½ ï¿½ï¿½ï¿½ï¿½
+        VK_PIPELINE_BIND_POINT_GRAPHICS,    // ï¿½×·ï¿½ï¿½È½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½Îµï¿½
+        pipelineLayout_,                     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¾Æ¿ï¿½
+        0,                                  // ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ Ã¹ ï¿½ï¿½Â° descriptor set ï¿½ï¿½È£ (set = 0)
+        descriptorSets.size(),                                  // ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ descriptor setï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+        descriptorSets.data(),                     // ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ descriptor set ï¿½Úµï¿½ï¿½ï¿½ ï¿½è¿­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        0,                                  // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 0)
+        nullptr                             // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è¿­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ nullptr)
     );
 }
 
@@ -355,7 +355,7 @@ VkPipelineColorBlendStateCreateInfo VulkanPipeline::createColorBlendState(VkPipe
     colorBlendAttachment.srcColorBlendFactor = config_.srcColorBlendFactor;
     colorBlendAttachment.dstColorBlendFactor = config_.dstColorBlendFactor;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // ÀÏ¹ÝÀûÀÎ ¾ËÆÄ ºí·»µù ¼³Á¤
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // ï¿½Ï¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
@@ -380,9 +380,9 @@ VkPipelineRenderingCreateInfo VulkanPipeline::createDynamicRenderingInfo( ) {
     pipelineRenderingCreateInfo.colorAttachmentCount = 1;
     pipelineRenderingCreateInfo.pColorAttachmentFormats = &config_.colorAttachmentFormat;
     
-    // Depth Buffer Æ÷¸Ë ¼³Á¤
+    // Depth Buffer ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     pipelineRenderingCreateInfo.depthAttachmentFormat = config_.depthAttachmentFormat;
-    pipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // ½ºÅÙ½ÇÀº »ç¿ë ¾È ÇÔ
+    pipelineRenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED; // ï¿½ï¿½ï¿½Ù½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½
 
     return pipelineRenderingCreateInfo;
 }

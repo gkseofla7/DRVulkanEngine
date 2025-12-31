@@ -18,7 +18,7 @@ class Resource;
 class BDABuffer;
 #define MAX_BONES 100 
 struct UniformBufferBone {
-    alignas(16) glm::mat4 finalBoneMatrix[MAX_BONES]; // 메모리 정렬 보장
+    alignas(16) glm::mat4 finalBoneMatrix[MAX_BONES];
 };
 
 struct UniformBufferObject {
@@ -73,7 +73,7 @@ private:
     static constexpr uint32_t BONE_UPDATE_FREQUENCY = 1;
     static constexpr float MATRIX_COMPARISON_THRESHOLD = 0.00001f;
     
-    mutable UniformBufferBone ubBoneBuffer_; // 스택 할당 방지를 위한 재사용 버퍼
+    mutable UniformBufferBone ubBoneBuffer_;
     
     inline bool isMatrixChanged(const glm::mat4& a, const glm::mat4& b) const;
 
