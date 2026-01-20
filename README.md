@@ -30,5 +30,5 @@ Vulkan API의 번거로운 리소스 레이아웃 정의 과정을 **셰이더 �
 ---
 
 ##  자세한 설명(Blog)
-* **Blog Link:** [Tech Blog]([https://gkseofla7.tistory.com/11)
+* **Blog Link:** [Tech Blog](https://gkseofla7.tistory.com/11)
 
