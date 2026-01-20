@@ -1,10 +1,10 @@
 # Vulkan Renderer: Generalization & Optimization
 
-본 프로젝트는 하드코딩된 구조에서 벗어나, **셰이더 리플렉션(Shader Reflection)**과 **렌더 그래프(Render Graph)**를 기반으로 설계된 현대적이고 유연한 Vulkan 렌더링 엔진입니다. 기존 D3D12 엔진 개발 경험을 바탕으로 리소스 관리 자동화와 파이프라인 최적화를 달성했습니다.
+본 프로젝트는 하드코딩된 구조에서 벗어나, 셰이더 리플렉션(Shader Reflection)과 렌더 그래프(Render Graph)를 기반으로 설계된 현대적이고 유연한 Vulkan 렌더링 엔진입니다. 기존 D3D12 엔진 개발 경험을 바탕으로 리소스 관리 자동화와 파이프라인 최적화하였습니다.
 
 ---
 
-## 🛠 주요 기술 및 최적화 (Key Features)
+## 주요 기술 및 최적화 (Key Features)
 
 ### 1. Bindless 아키텍처 및 디스크립터 인덱싱 (Descriptor Indexing)
 리소스 바인딩 주체를 CPU에서 GPU로 이전하여 **CPU 오버헤드와 GPU 파이프라인 중단(Stall)**을 획기적으로 개선했습니다.
